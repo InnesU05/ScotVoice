@@ -22,7 +22,7 @@ const Navbar = () => {
             <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
                <Phone className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-2xl tracking-tight text-slate-900">ScotVoice</span>
+            <span className="font-bold text-2xl tracking-tight text-slate-900">NessDial</span>
           </div>
 
           {/* Desktop Menu */}
@@ -31,7 +31,7 @@ const Navbar = () => {
             <a href="#comparison" className="text-slate-600 hover:text-blue-700 font-semibold transition">Why Switch?</a>
             <a href="#how-it-works" className="text-slate-600 hover:text-blue-700 font-semibold transition">How it Works</a>
             <Link 
-              href="/dashboard" 
+              href="/login" 
               className="px-6 py-2.5 bg-slate-900 text-white rounded-full font-semibold hover:bg-blue-800 transition-all shadow-lg hover:shadow-xl ring-2 ring-transparent hover:ring-blue-500/50"
             >
               Client Login
@@ -60,7 +60,7 @@ const Navbar = () => {
               <a href="#voices" className="block text-slate-700 font-semibold text-lg" onClick={() => setIsOpen(false)}>Our Voices</a>
               <a href="#comparison" className="block text-slate-700 font-semibold text-lg" onClick={() => setIsOpen(false)}>Why Switch?</a>
               <a href="#how-it-works" className="block text-slate-700 font-semibold text-lg" onClick={() => setIsOpen(false)}>How it Works</a>
-              <Link href="/dashboard" className="block w-full text-center py-4 bg-blue-700 text-white rounded-xl font-bold shadow-md">
+              <Link href="/login" className="block w-full text-center py-4 bg-blue-700 text-white rounded-xl font-bold shadow-md">
                 Login Area
               </Link>
             </div>
@@ -113,7 +113,7 @@ const Hero = () => {
           transition={{ delay: 0.2 }}
           className="text-xl text-slate-600 max-w-2xl mx-auto mb-12 leading-relaxed"
         >
-          ScotVoice is the automated receptionist built for Scotland. Whether you're a <strong>Tradesperson, PT, or Salon Owner</strong>, it answers calls, filters spam, and books clients directly into your diary.
+          NessDial is the automated receptionist built for Scotland. Whether you're a <strong>Tradesperson, PT, or Salon Owner</strong>, it answers calls, filters spam, and books clients directly into your diary.
         </motion.p>
 
         <motion.div 
@@ -281,7 +281,7 @@ const ComparisonTable = () => {
           <div className="grid grid-cols-3 border-b border-slate-700 p-6 bg-slate-800/50">
             <div className="font-semibold text-slate-400">Feature</div>
             <div className="font-bold text-center text-xl text-slate-400">Standard Voicemail</div>
-            <div className="font-bold text-center text-xl text-blue-400">ScotVoice AI</div>
+            <div className="font-bold text-center text-xl text-blue-400">NessDial AI</div>
           </div>
           
           {/* Row 1 */}
@@ -355,7 +355,7 @@ const HowItWorks = () => {
     {
       icon: <CheckCircle2 className="w-6 h-6 text-white" />,
       title: "3. Divert & Forget",
-      desc: "Forward your missed calls to your new ScotVoice number. We handle the rest."
+      desc: "Forward your missed calls to your new NessDial number. We handle the rest."
     }
   ];
 
@@ -392,7 +392,7 @@ const FeatureBento = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-16 max-w-3xl">
           <h2 className="text-4xl font-bold text-slate-900 mb-6">Built for Scottish Business.</h2>
-          <p className="text-xl text-slate-600">Traditional call centres cost a fortune and sound like robots. ScotVoice is designed to sound like a local member of staff who happens to be extremely organised.</p>
+          <p className="text-xl text-slate-600">Traditional call centres cost a fortune and sound like robots. NessDial is designed to sound like a local member of staff who happens to be extremely organised.</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[300px]">
@@ -482,9 +482,9 @@ const FAQ = () => {
 
   const faqs = [
     { q: "Does it really sound Scottish?", a: "Yes. We use advanced voice synthesis fine-tuned for the UK market. It's not a caricature; it's a professional, neutral Scottish accent that builds trust." },
-    { q: "I'm a PT/Florist/Consultant, is this for me?", a: "Absolutely. ScotVoice works for any busy professional who misses calls. Whether you are leading a class, arranging flowers, or in a meeting, we handle the enquiries." },
+    { q: "I'm a PT/Florist/Consultant, is this for me?", a: "Absolutely. NessDial works for any busy professional who misses calls. Whether you are leading a class, arranging flowers, or in a meeting, we handle the enquiries." },
     { q: "How do I know if I got a lead?", a: "The second the call finishes, we send you an SMS (text) and an email with a summary of the call, the client's details, and what they need." },
-    { q: "What happens if I want to answer the phone myself?", a: "You can set your phone to only divert to ScotVoice when you are busy, decline a call, or are unreachable. You retain full control." },
+    { q: "What happens if I want to answer the phone myself?", a: "You can set your phone to only divert to NessDial when you are busy, decline a call, or are unreachable. You retain full control." },
     { q: "Is there a contract?", a: "No. It is a rolling monthly subscription. You can cancel instantly from your dashboard." },
   ];
 
@@ -554,13 +554,13 @@ const Footer = () => {
            <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
              <Phone className="w-4 h-4 text-white" />
            </div>
-           <span className="text-slate-900 font-bold text-xl">ScotVoice</span>
+           <span className="text-slate-900 font-bold text-xl">NessDial</span>
         </div>
-        <p className="text-sm">© {new Date().getFullYear()} ScotVoice AI. Made in Scotland.</p>
+        <p className="text-sm">© {new Date().getFullYear()} NessDial AI. Made in Scotland.</p>
         <div className="flex gap-6 text-sm font-medium">
           <a href="#" className="hover:text-blue-600 transition">Privacy Policy</a>
           <a href="#" className="hover:text-blue-600 transition">Terms of Service</a>
-          <a href="mailto:hello@scotvoice.ai" className="hover:text-blue-600 transition">Contact</a>
+          <a href="mailto:hello@nessdial.ai" className="hover:text-blue-600 transition">Contact</a>
         </div>
       </div>
     </footer>

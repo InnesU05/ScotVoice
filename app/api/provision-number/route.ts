@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: chosenNumber.phoneNumber,
-      friendlyName: `ScotVoice: ${businessName} (${voiceId})`,
+      friendlyName: `NessDial: ${businessName} (${voiceId})`,
     });
 
     // 4. Import to Vapi using the SPECIFIC Assistant ID
