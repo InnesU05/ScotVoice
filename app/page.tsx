@@ -18,12 +18,12 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-20 items-center">
           {/* Logo */}
-          <div className="flex-shrink-0 flex items-center gap-3 cursor-pointer">
+          <Link href="/" className="flex-shrink-0 flex items-center gap-3 cursor-pointer">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
                <Phone className="w-5 h-5 text-white" />
             </div>
             <span className="font-bold text-2xl tracking-tight text-slate-900">NessDial</span>
-          </div>
+          </Link>
 
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-8">
@@ -122,13 +122,17 @@ const Hero = () => {
           transition={{ delay: 0.3 }}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
-          <button className="px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-lg hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 w-full sm:w-auto flex items-center justify-center gap-2 transform hover:-translate-y-1">
-            Get Started Free <ArrowRight size={20} />
-          </button>
-          <button className="px-8 py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-full font-bold text-lg hover:border-blue-300 hover:bg-blue-50 transition w-full sm:w-auto flex items-center justify-center gap-2 group">
-            <Play size={20} className="fill-slate-700 group-hover:fill-blue-600 group-hover:text-blue-600 transition" /> 
-            Hear the Demo
-          </button>
+          <Link href="/login" className="w-full sm:w-auto">
+            <button className="w-full px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-lg hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 transform hover:-translate-y-1">
+              Get Started Free <ArrowRight size={20} />
+            </button>
+          </Link>
+          <a href="#voices" className="w-full sm:w-auto">
+            <button className="w-full px-8 py-4 bg-white text-slate-700 border-2 border-slate-200 rounded-full font-bold text-lg hover:border-blue-300 hover:bg-blue-50 transition flex items-center justify-center gap-2 group">
+              <Play size={20} className="fill-slate-700 group-hover:fill-blue-600 group-hover:text-blue-600 transition" /> 
+              Hear the Demo
+            </button>
+          </a>
         </motion.div>
         
         <div className="mt-10 flex items-center justify-center gap-6 text-slate-400 grayscale opacity-60">
@@ -159,7 +163,8 @@ const VoiceDemo = () => {
           <div className="flex flex-col md:flex-row gap-6">
             
             {/* Sidebar / Toggle */}
-            <div className="flex flex-row md:flex-col gap-2 w-full md:w-1/3">
+            {/* FIXED: Changed flex-row to flex-col on mobile to prevent squashing */}
+            <div className="flex flex-col gap-2 w-full md:w-1/3">
               
               {/* OPTION 1: THE TRADIE */}
               <button 
@@ -536,9 +541,11 @@ const CTA = () => {
         <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
           Join the other smart Scottish businesses who have automated their admin. 
         </p>
-        <button className="px-10 py-5 bg-blue-600 text-white rounded-full font-bold text-xl hover:bg-blue-500 transition shadow-2xl shadow-blue-900/50 transform hover:-translate-y-1">
-          Get Your Number Now
-        </button>
+        <Link href="/login">
+          <button className="px-10 py-5 bg-blue-600 text-white rounded-full font-bold text-xl hover:bg-blue-500 transition shadow-2xl shadow-blue-900/50 transform hover:-translate-y-1">
+            Get Your Number Now
+          </button>
+        </Link>
         <p className="mt-6 text-sm text-slate-500">No credit card required for setup • 5-minute process</p>
       </div>
     </section>
@@ -569,7 +576,7 @@ const Footer = () => {
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-white font-sans selection:bg-blue-100 selection:text-blue-900 scroll-smooth">
+    <main className="min-h-screen bg-white font-sans selection:bg-blue-100 selection:text-blue-900 scroll-smooth overflow-x-hidden">
       <Navbar />
       <Hero />
       <VoiceDemo />
