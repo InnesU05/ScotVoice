@@ -122,7 +122,8 @@ const Hero = () => {
           transition={{ delay: 0.3 }}
           className="flex flex-col sm:flex-row gap-4 justify-center items-center"
         >
-          <Link href="/login" className="w-full sm:w-auto">
+          {/* UPDATED LINK: /login?view=signup */}
+          <Link href="/login?view=signup" className="w-full sm:w-auto">
             <button className="w-full px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-lg hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 transform hover:-translate-y-1">
               Get Started Free <ArrowRight size={20} />
             </button>
@@ -163,7 +164,6 @@ const VoiceDemo = () => {
           <div className="flex flex-col md:flex-row gap-6">
             
             {/* Sidebar / Toggle */}
-            {/* FIXED: Changed flex-row to flex-col on mobile to prevent squashing */}
             <div className="flex flex-col gap-2 w-full md:w-1/3">
               
               {/* OPTION 1: THE TRADIE */}
@@ -541,7 +541,8 @@ const CTA = () => {
         <p className="text-xl text-slate-300 mb-10 max-w-2xl mx-auto">
           Join the other smart Scottish businesses who have automated their admin. 
         </p>
-        <Link href="/login">
+        {/* UPDATED LINK: /login?view=signup */}
+        <Link href="/login?view=signup">
           <button className="px-10 py-5 bg-blue-600 text-white rounded-full font-bold text-xl hover:bg-blue-500 transition shadow-2xl shadow-blue-900/50 transform hover:-translate-y-1">
             Get Your Number Now
           </button>
