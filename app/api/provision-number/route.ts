@@ -2,40 +2,46 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import Twilio from 'twilio';
 
-// Initialize Twilio
 const twilioClient = Twilio(
   process.env.TWILIO_ACCOUNT_SID,
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// Map the user's choice to your Env Variables
+const VOICE_MAP: Record<string, string | undefined> = {
+  'tradie': process.env.VAPI_ASSISTANT_ID_TRADIE,
+  'pro': process.env.VAPI_ASSISTANT_ID_PRO,
+  'coach': process.env.VAPI_ASSISTANT_ID_COACH,
+};
+
 export async function POST(req: Request) {
   try {
-    const { userId, businessName } = await req.json();
+    // 1. We now expect a 'voiceId' (tradie/pro/coach) from the frontend
+    const { userId, businessName, voiceId } = await req.json();
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
+    
+    // 2. Select the correct Vapi Assistant ID
+    const selectedAssistantId = VOICE_MAP[voiceId];
+    
+    if (!selectedAssistantId) {
+      return NextResponse.json({ error: 'Invalid Voice Selection' }, { status: 400 });
     }
 
-    // 1. Search for a UK Mobile Number (+44 7...)
+    // 3. Search & Buy Twilio Number
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
 
-    if (availableNumbers.length === 0) {
-      throw new Error('No UK numbers available right now.');
-    }
-
+    if (availableNumbers.length === 0) throw new Error('No UK numbers available');
     const chosenNumber = availableNumbers[0];
 
-    // 2. Buy the Number (Uses Student Credits)
     const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: chosenNumber.phoneNumber,
-      friendlyName: `ScotVoice: ${businessName || userId}`,
+      friendlyName: `ScotVoice: ${businessName} (${voiceId})`,
     });
 
-    console.log(`✅ Purchased: ${purchasedNumber.phoneNumber}`);
-
-    // 3. Import to Vapi (The "Brain" Connection)
+    // 4. Import to Vapi using the SPECIFIC Assistant ID
     const vapiResponse = await fetch('https://api.vapi.ai/phone-number/import', {
       method: 'POST',
       headers: {
@@ -47,19 +53,14 @@ export async function POST(req: Request) {
         number: purchasedNumber.phoneNumber,
         twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
-        assistantId: process.env.NEXT_PUBLIC_VAPI_MASTER_ASSISTANT_ID,
+        assistantId: selectedAssistantId, // <--- Dynamic ID here
       }),
     });
 
-    if (!vapiResponse.ok) {
-      const errorText = await vapiResponse.text();
-      console.error('Vapi Import Error:', errorText);
-      throw new Error('Failed to link number to Vapi');
-    }
-
+    if (!vapiResponse.ok) throw new Error('Failed to link number to Vapi');
     const vapiData = await vapiResponse.json();
 
-    // 4. Save to Supabase
+    // 5. Save to Supabase (Now including the voice_type)
     const { error: dbError } = await supabaseAdmin
       .from('assistants')
       .insert({
@@ -67,15 +68,14 @@ export async function POST(req: Request) {
         twilio_phone_number: purchasedNumber.phoneNumber,
         twilio_phone_sid: purchasedNumber.sid,
         vapi_phone_number_id: vapiData.id,
-        vapi_assistant_id: process.env.NEXT_PUBLIC_VAPI_MASTER_ASSISTANT_ID,
+        vapi_assistant_id: selectedAssistantId,
+        // We can store the voice type in a metadata column if you added one, 
+        // or just rely on the vapi_assistant_id to know which one it is.
       });
 
     if (dbError) throw dbError;
 
-    return NextResponse.json({ 
-      success: true, 
-      phoneNumber: purchasedNumber.phoneNumber 
-    });
+    return NextResponse.json({ success: true, phoneNumber: purchasedNumber.phoneNumber });
 
   } catch (error: any) {
     console.error('Provisioning Error:', error);
