@@ -16,15 +16,14 @@ export async function POST(req: Request) {
     if (!userId) {
       return NextResponse.json({ error: 'User ID is missing. Please log in again.' }, { status: 400 });
     }
-
-    console.log(`🚀 Starting Checkout for User: ${userId}`);
-
-    // 1. Save "Pre-Flight" Data (Using UPSERT)
-    // We attempt to save the business name before payment.
+    
+    // 1. Save "Pre-Flight" Data
+    // FIX: Added 'email' to this object to satisfy the Not-Null constraint
     const { error: dbError } = await supabaseAdmin
       .from('profiles')
       .upsert({ 
         id: userId, 
+        email: email, // <--- THIS WAS MISSING
         business_name: businessName, 
         selected_voice: voiceId,
         updated_at: new Date().toISOString()
@@ -32,7 +31,6 @@ export async function POST(req: Request) {
 
     if (dbError) {
       console.error('Supabase Upsert Error:', dbError);
-      // Return the ACTUAL error message to the frontend so we can debug it
       return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
     }
 
