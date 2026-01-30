@@ -18,12 +18,11 @@ export async function POST(req: Request) {
     }
     
     // 1. Save "Pre-Flight" Data
-    // FIX: Added 'email' to this object to satisfy the Not-Null constraint
     const { error: dbError } = await supabaseAdmin
       .from('profiles')
       .upsert({ 
         id: userId, 
-        email: email, // <--- THIS WAS MISSING
+        email: email,
         business_name: businessName, 
         selected_voice: voiceId,
         updated_at: new Date().toISOString()
@@ -54,6 +53,9 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'subscription',
+      // FIX: Enable Promo Codes here
+      allow_promotion_codes: true, 
+      
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/onboarding/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/onboarding`,
       customer_email: email,
