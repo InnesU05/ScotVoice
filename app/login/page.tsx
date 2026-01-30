@@ -9,14 +9,12 @@ import { motion } from 'framer-motion';
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  
-  // Check if the URL has ?view=signup
   const defaultToSignup = searchParams.get('view') === 'signup';
 
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isSignUp, setIsSignUp] = useState(defaultToSignup); // Initialize based on URL
+  const [isSignUp, setIsSignUp] = useState(defaultToSignup);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -28,27 +26,26 @@ function LoginContent() {
 
     try {
       if (isSignUp) {
-        // Sign Up Logic
+        // --- SIGN UP FLOW ---
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${location.origin}/dashboard` }
+          options: { emailRedirectTo: `${location.origin}/onboarding` } // Redirect to Onboarding
         });
         
         if (error) throw error;
 
-        // Check if we got a session immediately
         if (data.session) {
-          router.push('/dashboard');
+          router.push('/onboarding'); // <--- FIXED: Send to Onboarding Wizard
         } else {
           setMessage('✅ Check your email to confirm your account!');
         }
 
       } else {
-        // Sign In Logic
+        // --- SIGN IN FLOW ---
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push('/dashboard');
+        router.push('/dashboard'); // Existing users go to Dashboard
       }
     } catch (err: any) {
       setError(err.message);
@@ -87,7 +84,7 @@ function LoginContent() {
               type="email"
               placeholder="you@business.com"
               required
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900" // Added text-slate-900
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900"
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
@@ -98,7 +95,7 @@ function LoginContent() {
               placeholder="••••••••"
               required
               minLength={6}
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900" // Added text-slate-900
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900"
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
@@ -120,7 +117,7 @@ function LoginContent() {
             disabled={loading}
             className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg hover:shadow-blue-600/20 flex items-center justify-center transform active:scale-[0.98]"
           >
-            {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')} {/* Removed Free */}
+            {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')}
           </button>
         </form>
 
@@ -143,7 +140,7 @@ function LoginContent() {
 export default function Login() {
   return (
     <main className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-slate-900">
-      {/* --- BACKGROUND EFFECTS --- */}
+      {/* Background Effects */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl mix-blend-screen opacity-50 animate-pulse"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-3xl mix-blend-screen opacity-50"></div>
