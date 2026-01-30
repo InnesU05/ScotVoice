@@ -6,11 +6,9 @@ export async function POST(req: Request) {
     const body = await req.json();
     
     // Vapi sends a 'message' object. We care about 'assistant-request'.
-    // This happens the moment a call comes in, BEFORE the AI speaks.
     if (body.message.type === 'assistant-request') {
       
       const call = body.message.call;
-      // The phone number the customer called (Your Twilio Number)
       const calledNumber = call.phoneNumberId; 
 
       if (!calledNumber) {
@@ -19,7 +17,6 @@ export async function POST(req: Request) {
       }
 
       // 1. Look up who owns this number in Supabase
-      // We join the 'assistants' table with 'profiles' to get business details
       const { data: assistantRecord, error } = await supabaseAdmin
         .from('assistants')
         .select(`
@@ -50,27 +47,11 @@ export async function POST(req: Request) {
       console.log(`📞 Call for ${profile.business_name} (Owner: ${assistantRecord.user_id})`);
 
       // 2. Return the Dynamic Variables to Vapi
-      // This tells Rab/Claire exactly who they are pretending to be.
       return NextResponse.json({
         assistant: {
-          // We override the ID just in case, but mainly we inject variables
-          model: {
-            // This injects values into the System Prompt {{business_name}}
-            messages: [
-              {
-                role: "system",
-                content: `You are the receptionist for ${profile.business_name}. Keep it brief.`
-                // Note: Vapi merges this with your dashboard prompt if you use variable substitution
-              }
-            ],
-            // If you used {{business_name}} in your Vapi Dashboard Prompt, use this instead:
-            // toolIds: [], 
-            // ...
-          },
+          // --- CHANGED HERE: Removed 'model' block to preserve Rab's personality ---
           variableValues: {
             business_name: profile.business_name || "Our Business",
-            // Add other dynamic fields here if you added them to the prompt
-            // industry: profile.industry, 
           }
         }
       });

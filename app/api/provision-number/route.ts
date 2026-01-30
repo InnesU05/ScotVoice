@@ -56,15 +56,14 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        // REMOVED: provider: 'twilio' (Vapi doesn't want this)
-        // REMOVED: number: ... (Wrong key name)
-        
-        // ADDED: The specific key Vapi requires
         twilioPhoneNumber: purchasedNumber.phoneNumber, 
-        
         twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
         assistantId: selectedAssistantId,
+        
+        // --- THE ONLY CHANGE IS HERE ---
+        // This tells Vapi: "Ask my server for the business name when this number calls"
+        serverUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/vapi-webhook`,
       }),
     });
 
