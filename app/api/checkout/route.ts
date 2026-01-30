@@ -4,24 +4,27 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2026-01-28.clover',
+  apiVersion: '2026-01-28.clover' as any, 
 });
 
 export async function POST(req: Request) {
   try {
     const { userId, email, voiceId, businessName } = await req.json();
 
-    // 1. Save "Pre-Flight" Data
-    // We store their choices now so we know what to provision after they pay
+    // 1. Save "Pre-Flight" Data (Using UPSERT to prevent ghost profiles)
     const { error } = await supabaseAdmin
       .from('profiles')
-      .update({ 
+      .upsert({ 
+        id: userId, 
         business_name: businessName, 
-        selected_voice: voiceId 
-      })
-      .eq('id', userId);
+        selected_voice: voiceId,
+        updated_at: new Date().toISOString()
+      });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase Error:', error);
+      throw new Error('Failed to save profile data');
+    }
 
     // 2. Create Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -33,9 +36,8 @@ export async function POST(req: Request) {
             product_data: {
               name: 'NessDial AI Receptionist',
               description: `Monthly Subscription (Voice: ${voiceId.toUpperCase()})`,
-              // images: ['https://your-domain.com/logo.png'], // Add your logo URL here later
             },
-            unit_amount: 2999, // £29.99
+            unit_amount: 2000, // <--- UPDATED: £20.00 (in pence)
             recurring: {
               interval: 'month',
             },
@@ -44,12 +46,11 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'subscription',
-      // Redirect URLs
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/onboarding/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/onboarding`,
       customer_email: email,
       metadata: {
-        userId: userId, // Critical for matching payment to user later
+        userId: userId, 
       },
     });
 
