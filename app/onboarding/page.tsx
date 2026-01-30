@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { 
   Briefcase, UserCircle2, Dumbbell, CheckCircle2, 
-  ArrowRight, Store, Loader2, Play, Pause, ShieldCheck, Volume2
+  ArrowRight, Store, Loader2, Play, Pause, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -17,7 +17,7 @@ const VOICES = [
     desc: 'Direct, deep, friendly. Perfect for trades.',
     icon: <Briefcase className="w-5 h-5" />,
     color: 'blue',
-    audioSrc: '/audio/rab.mp3' // You will add this file later
+    audioSrc: '/audio/rab.mp3' 
   },
   {
     id: 'pro',
