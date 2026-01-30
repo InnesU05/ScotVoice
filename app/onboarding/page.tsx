@@ -16,7 +16,6 @@ const VOICES = [
     label: 'The Tradie',
     desc: 'Direct, deep, friendly. Perfect for trades.',
     icon: <Briefcase className="w-5 h-5" />,
-    color: 'blue',
     audioSrc: '/audio/rab.mp3' 
   },
   {
@@ -25,7 +24,6 @@ const VOICES = [
     label: 'The Professional',
     desc: 'Soft, polished, educated. Ideal for clinics.',
     icon: <UserCircle2 className="w-5 h-5" />,
-    color: 'purple',
     audioSrc: '/audio/claire.mp3'
   },
   {
@@ -34,7 +32,6 @@ const VOICES = [
     label: 'The Coach',
     desc: 'High energy, fast, upbeat. Great for PTs.',
     icon: <Dumbbell className="w-5 h-5" />,
-    color: 'teal',
     audioSrc: '/audio/calum.mp3'
   }
 ];
@@ -76,10 +73,49 @@ export default function Onboarding() {
     }
   };
 
-  // 3. Checkout Logic (FIXED)
+  // Helper to get active styles (Fixes Tailwind Purge Issue)
+  const getCardStyle = (id: string, isSelected: boolean) => {
+    const base = "relative w-full p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group";
+    if (!isSelected) return `${base} border-slate-100 hover:border-slate-300 hover:bg-slate-50`;
+    
+    switch (id) {
+      case 'tradie': return `${base} border-blue-500 bg-blue-50 ring-1 ring-blue-500 shadow-md`;
+      case 'pro': return `${base} border-purple-500 bg-purple-50 ring-1 ring-purple-500 shadow-md`;
+      case 'coach': return `${base} border-teal-500 bg-teal-50 ring-1 ring-teal-500 shadow-md`;
+      default: return base;
+    }
+  };
+
+  const getIconStyle = (id: string, isSelected: boolean) => {
+    const base = "w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors";
+    if (!isSelected) return `${base} bg-slate-200 text-slate-400`;
+    
+    switch (id) {
+      case 'tradie': return `${base} bg-blue-600 text-white`;
+      case 'pro': return `${base} bg-purple-600 text-white`;
+      case 'coach': return `${base} bg-teal-600 text-white`;
+      default: return base;
+    }
+  };
+
+  const getCheckColor = (id: string) => {
+    switch (id) {
+      case 'tradie': return "text-blue-600";
+      case 'pro': return "text-purple-600";
+      case 'coach': return "text-teal-600";
+      default: return "text-blue-600";
+    }
+  };
+
+  // 3. Checkout Logic (Refined)
   const handleCheckout = async () => {
+    if (!user?.id) {
+      setErrorMsg("User session not found. Please log in again.");
+      return;
+    }
+
     setLoading(true);
-    setErrorMsg(''); // Clear previous errors
+    setErrorMsg('');
 
     try {
       const res = await fetch('/api/checkout', {
@@ -95,21 +131,21 @@ export default function Onboarding() {
 
       const data = await res.json();
 
-      // Explicitly check for API errors to stop the loading loop
-      if (!res.ok || data.error) {
+      if (!res.ok) {
+        // Display the SPECIFIC database error to help debugging
         throw new Error(data.error || 'Checkout initialization failed');
       }
 
       if (data.url) {
         window.location.href = data.url; 
       } else {
-        throw new Error('No checkout URL received');
+        throw new Error('No checkout URL received from Stripe');
       }
 
     } catch (err: any) {
       console.error('Checkout Error:', err);
       setErrorMsg(err.message || 'Payment system busy. Try again.');
-      setLoading(false); // STOP LOADING on error
+      setLoading(false);
     }
   };
 
@@ -152,7 +188,7 @@ export default function Onboarding() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="p-6 md:p-10" // Reduced padding for mobile
+              className="p-6 md:p-10"
             >
               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-6">
                 <Store size={24} />
@@ -166,7 +202,6 @@ export default function Onboarding() {
                   <input
                     type="text"
                     placeholder="e.g. Davie's Plumbing"
-                    // FIXED: Added text-slate-900 so text is clearly visible
                     className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-600 focus:border-blue-600 outline-none transition font-medium text-lg text-slate-900 placeholder:text-slate-300"
                     value={businessName}
                     onChange={(e) => setBusinessName(e.target.value)}
@@ -192,7 +227,7 @@ export default function Onboarding() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              className="p-6 md:p-10" // Reduced padding for mobile
+              className="p-6 md:p-10"
             >
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">Pick your Receptionist</h1>
@@ -210,16 +245,12 @@ export default function Onboarding() {
                   <div 
                     key={voice.id}
                     onClick={() => setSelectedVoice(voice.id)}
-                    className={`relative w-full p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 group
-                      ${selectedVoice === voice.id 
-                        ? `border-${voice.color}-500 bg-${voice.color}-50 ring-1 ring-${voice.color}-500 shadow-md` 
-                        : 'border-slate-100 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
+                    // FIXED: Using helper function for classes
+                    className={getCardStyle(voice.id, selectedVoice === voice.id)}
                   >
                     <div className="flex items-start gap-4">
                       {/* Icon */}
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors
-                        ${selectedVoice === voice.id ? `bg-${voice.color}-600 text-white` : 'bg-slate-200 text-slate-400'}`}>
+                      <div className={getIconStyle(voice.id, selectedVoice === voice.id)}>
                         {voice.icon}
                       </div>
 
@@ -229,14 +260,15 @@ export default function Onboarding() {
                            <h3 className={`font-bold text-lg ${selectedVoice === voice.id ? 'text-slate-900' : 'text-slate-700'}`}>
                              {voice.name}
                            </h3>
-                           {selectedVoice === voice.id && <CheckCircle2 className={`text-${voice.color}-600 w-5 h-5`} />}
+                           {selectedVoice === voice.id && (
+                             <CheckCircle2 className={`w-5 h-5 ${getCheckColor(voice.id)}`} />
+                           )}
                         </div>
                         <p className="text-sm text-slate-500 leading-snug mb-3">{voice.desc}</p>
                         
-                        {/* Audio Preview Button - FIXED: Now a real button */}
                         <button
                           onClick={(e) => {
-                            e.stopPropagation(); // Don't select card when clicking play
+                            e.stopPropagation();
                             toggleAudio(voice.id, voice.audioSrc);
                           }}
                           className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-3 py-2 rounded-lg transition
@@ -259,8 +291,9 @@ export default function Onboarding() {
 
               {/* Error Message Display */}
               {errorMsg && (
-                <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2 animate-pulse">
-                  <AlertCircle size={16} /> {errorMsg}
+                <div className="mt-4 p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2 animate-pulse border border-red-200">
+                  <AlertCircle size={16} /> 
+                  <span className="font-medium">Error: {errorMsg}</span>
                 </div>
               )}
 

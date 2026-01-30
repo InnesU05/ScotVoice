@@ -9,10 +9,19 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(req: Request) {
   try {
-    const { userId, email, voiceId, businessName } = await req.json();
+    const body = await req.json();
+    const { userId, email, voiceId, businessName } = body;
 
-    // 1. Save "Pre-Flight" Data (Using UPSERT to prevent ghost profiles)
-    const { error } = await supabaseAdmin
+    // Validation
+    if (!userId) {
+      return NextResponse.json({ error: 'User ID is missing. Please log in again.' }, { status: 400 });
+    }
+
+    console.log(`🚀 Starting Checkout for User: ${userId}`);
+
+    // 1. Save "Pre-Flight" Data (Using UPSERT)
+    // We attempt to save the business name before payment.
+    const { error: dbError } = await supabaseAdmin
       .from('profiles')
       .upsert({ 
         id: userId, 
@@ -21,9 +30,10 @@ export async function POST(req: Request) {
         updated_at: new Date().toISOString()
       });
 
-    if (error) {
-      console.error('Supabase Error:', error);
-      throw new Error('Failed to save profile data');
+    if (dbError) {
+      console.error('Supabase Upsert Error:', dbError);
+      // Return the ACTUAL error message to the frontend so we can debug it
+      return NextResponse.json({ error: `Database Error: ${dbError.message}` }, { status: 500 });
     }
 
     // 2. Create Stripe Checkout Session
@@ -37,7 +47,7 @@ export async function POST(req: Request) {
               name: 'NessDial AI Receptionist',
               description: `Monthly Subscription (Voice: ${voiceId.toUpperCase()})`,
             },
-            unit_amount: 2000, // <--- UPDATED: £20.00 (in pence)
+            unit_amount: 2000, // £20.00
             recurring: {
               interval: 'month',
             },
@@ -57,7 +67,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ url: session.url });
 
   } catch (err: any) {
-    console.error('Stripe Error:', err);
+    console.error('Stripe/Server Error:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
