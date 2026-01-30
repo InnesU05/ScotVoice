@@ -16,6 +16,11 @@ const VOICE_MAP: Record<string, string | undefined> = {
 
 export async function POST(req: Request) {
   try {
+    // --- CONFIGURATION ---
+    // PASTE YOUR TWILIO BUNDLE SID HERE
+    const YOUR_BUNDLE_SID = 'BUf1c5944923fe75b2b3b98629eab0d474'; 
+    // ---------------------
+
     // 1. We now expect a 'voiceId' (tradie/pro/coach) from the frontend
     const { userId, businessName, voiceId } = await req.json();
 
@@ -28,7 +33,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid Voice Selection' }, { status: 400 });
     }
 
-    // 3. Search & Buy Twilio Number
+    // 3. Search & Buy Twilio Number (UK Mobile)
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
@@ -36,9 +41,11 @@ export async function POST(req: Request) {
     if (availableNumbers.length === 0) throw new Error('No UK numbers available');
     const chosenNumber = availableNumbers[0];
 
+    // BUY NUMBER WITH BUNDLE SID
     const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: chosenNumber.phoneNumber,
       friendlyName: `NessDial: ${businessName} (${voiceId})`,
+      bundleSid: YOUR_BUNDLE_SID, // <--- This authorizes the purchase
     });
 
     // 4. Import to Vapi using the SPECIFIC Assistant ID
@@ -69,8 +76,6 @@ export async function POST(req: Request) {
         twilio_phone_sid: purchasedNumber.sid,
         vapi_phone_number_id: vapiData.id,
         vapi_assistant_id: selectedAssistantId,
-        // We can store the voice type in a metadata column if you added one, 
-        // or just rely on the vapi_assistant_id to know which one it is.
       });
 
     if (dbError) throw dbError;
