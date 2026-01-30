@@ -17,23 +17,21 @@ const VOICE_MAP: Record<string, string | undefined> = {
 export async function POST(req: Request) {
   try {
     // --- CONFIGURATION ---
-    // PASTE YOUR TWILIO BUNDLE SID HERE
     const YOUR_BUNDLE_SID = 'BUf1c5944923fe75b2b3b98629eab0d474'; 
     // ---------------------
 
-    // 1. We now expect a 'voiceId' (tradie/pro/coach) from the frontend
     const { userId, businessName, voiceId } = await req.json();
 
     if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     
-    // 2. Select the correct Vapi Assistant ID
     const selectedAssistantId = VOICE_MAP[voiceId];
     
     if (!selectedAssistantId) {
-      return NextResponse.json({ error: 'Invalid Voice Selection' }, { status: 400 });
+      console.error('Missing Assistant ID for:', voiceId);
+      return NextResponse.json({ error: 'Invalid Voice Selection (Assistant ID missing)' }, { status: 400 });
     }
 
-    // 3. Search & Buy Twilio Number (UK Mobile)
+    // 3. Search & Buy Twilio Number
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
@@ -41,14 +39,16 @@ export async function POST(req: Request) {
     if (availableNumbers.length === 0) throw new Error('No UK numbers available');
     const chosenNumber = availableNumbers[0];
 
-    // BUY NUMBER WITH BUNDLE SID
+    // BUY NUMBER
     const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: chosenNumber.phoneNumber,
       friendlyName: `NessDial: ${businessName} (${voiceId})`,
-      bundleSid: YOUR_BUNDLE_SID, // <--- This authorizes the purchase
+      bundleSid: YOUR_BUNDLE_SID,
     });
 
-    // 4. Import to Vapi using the SPECIFIC Assistant ID
+    console.log(`✅ Number Purchased: ${purchasedNumber.phoneNumber}`);
+
+    // 4. Import to Vapi
     const vapiResponse = await fetch('https://api.vapi.ai/phone-number/import', {
       method: 'POST',
       headers: {
@@ -60,14 +60,21 @@ export async function POST(req: Request) {
         number: purchasedNumber.phoneNumber,
         twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
-        assistantId: selectedAssistantId, // <--- Dynamic ID here
+        assistantId: selectedAssistantId,
       }),
     });
 
-    if (!vapiResponse.ok) throw new Error('Failed to link number to Vapi');
+    // --- BETTER ERROR HANDLING ---
+    if (!vapiResponse.ok) {
+      const errorText = await vapiResponse.text();
+      console.error('Vapi Import Failed:', errorText);
+      // Return the ACTUAL error from Vapi so you can see it on screen
+      throw new Error(`Vapi Error: ${errorText}`);
+    }
+
     const vapiData = await vapiResponse.json();
 
-    // 5. Save to Supabase (Now including the voice_type)
+    // 5. Save to Supabase
     const { error: dbError } = await supabaseAdmin
       .from('assistants')
       .insert({
