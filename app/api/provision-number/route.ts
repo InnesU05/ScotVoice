@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     console.log(`✅ Number Purchased: ${purchasedNumber.phoneNumber}`);
 
-    // 4. Import to Vapi
+    // 4. Import to Vapi (FIXED PAYLOAD STRUCTURE)
     const vapiResponse = await fetch('https://api.vapi.ai/phone-number/import', {
       method: 'POST',
       headers: {
@@ -56,19 +56,21 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        provider: 'twilio',
-        number: purchasedNumber.phoneNumber,
+        // REMOVED: provider: 'twilio' (Vapi doesn't want this)
+        // REMOVED: number: ... (Wrong key name)
+        
+        // ADDED: The specific key Vapi requires
+        twilioPhoneNumber: purchasedNumber.phoneNumber, 
+        
         twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
         assistantId: selectedAssistantId,
       }),
     });
 
-    // --- BETTER ERROR HANDLING ---
     if (!vapiResponse.ok) {
       const errorText = await vapiResponse.text();
       console.error('Vapi Import Failed:', errorText);
-      // Return the ACTUAL error from Vapi so you can see it on screen
       throw new Error(`Vapi Error: ${errorText}`);
     }
 
