@@ -179,9 +179,13 @@ export default function Onboarding() {
             >
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-slate-900 mb-2">Pick your Receptionist</h1>
-                <p className="text-slate-500 text-sm">
-                  Don't worry, you can swap voices instantly in your dashboard later.
-                </p>
+                {/* REPLACED: New Notice Box */}
+                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex gap-2 items-start mt-2">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <p className="text-blue-900 text-sm font-medium">
+                    This is just to get you started. You can <span className="font-bold underline">swap voices instantly</span> in your dashboard anytime.
+                  </p>
+                </div>
               </div>
               
               <div className="space-y-3">

@@ -87,7 +87,7 @@ function LoginContent() {
               type="email"
               placeholder="you@business.com"
               required
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900" // Added text-slate-900
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
@@ -98,7 +98,7 @@ function LoginContent() {
               placeholder="••••••••"
               required
               minLength={6}
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium"
+              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900" // Added text-slate-900
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
@@ -120,7 +120,7 @@ function LoginContent() {
             disabled={loading}
             className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg hover:shadow-blue-600/20 flex items-center justify-center transform active:scale-[0.98]"
           >
-            {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Free Account' : 'Sign In')}
+            {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')} {/* Removed Free */}
           </button>
         </form>
 

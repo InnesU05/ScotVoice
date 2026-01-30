@@ -125,7 +125,7 @@ const Hero = () => {
           {/* UPDATED LINK: /login?view=signup */}
           <Link href="/login?view=signup" className="w-full sm:w-auto">
             <button className="w-full px-8 py-4 bg-slate-900 text-white rounded-full font-bold text-lg hover:bg-slate-800 transition shadow-xl shadow-slate-900/20 flex items-center justify-center gap-2 transform hover:-translate-y-1">
-              Get Started Free <ArrowRight size={20} />
+              Get Started <ArrowRight size={20} /> {/* Removed Free */}
             </button>
           </Link>
           <a href="#voices" className="w-full sm:w-auto">
@@ -547,7 +547,8 @@ const CTA = () => {
             Get Your Number Now
           </button>
         </Link>
-        <p className="mt-6 text-sm text-slate-500">No credit card required for setup • 5-minute process</p>
+        {/* UPDATED: Pricing Transparency */}
+        <p className="mt-6 text-sm text-slate-500">Subscriptions from £20/month • No credit card required for setup • 5-minute process</p>
       </div>
     </section>
   );
