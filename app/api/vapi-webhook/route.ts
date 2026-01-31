@@ -1,40 +1,37 @@
 import { NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase-admin';
+
+// 🛑 DO NOT IMPORT supabaseAdmin here. 
+// If that file has a bad Key, it crashes the whole route before it starts.
 
 export async function POST(req: Request) {
   try {
+    // 1. Logging to prove Vapi reached us
+    console.log("🚀 VAPI REACHED THE SERVER - STARTING RESPONSE");
+
     const body = await req.json();
     const message = body.message;
 
+    // 2. Handle the "Who is this?" request
     if (message.type === 'assistant-request') {
-      
-      // 1. Still do the lookup to get the Business Name
-      const calledNumber = message.call.phoneNumberId; 
-      const { data: assistantRecord } = await supabaseAdmin
-        .from('assistants')
-        .select(`profiles:user_id ( business_name )`)
-        .eq('vapi_phone_number_id', calledNumber) 
-        .single();
+      console.log("⚡ Sending Hardcoded Rab ID...");
 
-      const profile = assistantRecord?.profiles as any;
-      const businessName = profile?.business_name || "Valued Customer";
-
-      console.log(`✅ FORCE MODE: Sending Rab + ${businessName}`);
-
-      // 2. 🚨 FORCE THE ID (Ignore Database ID for now) 🚨
       return NextResponse.json({
-        assistantId: "6af03c9c-2797-4818-8dfc-eb604c247f3d", // <--- Rab's Real ID
+        // This is the Rab ID you gave me.
+        // If this fails, the ID itself is wrong/from a different account.
+        assistantId: "6af03c9c-2797-4818-8dfc-eb604c247f3d", 
         assistant: {
           variableValues: {
-            business_name: businessName,
+            business_name: "CONNECTION SUCCESSFUL",
           }
         }
       });
     }
 
+    // 3. Handle End of Call (Just say OK)
     return NextResponse.json({ message: 'Handled' });
 
   } catch (error: any) {
+    console.error("🚨 Fatal Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
