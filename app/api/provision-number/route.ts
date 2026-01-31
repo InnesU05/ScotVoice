@@ -17,7 +17,7 @@ const BLUEPRINT_IDS: Record<string, string> = {
   // 2. TRADIE (Rab)
   'tradie': '6af03c9c-2797-4818-8dfc-eb604c247f3d',
 
-  // 3. PRO (Claire) - Ensure this ID is correct!
+  // 3. PRO (Claire)
   'pro': 'a5eaa6ce-db6e-4e35-bc31-2b8549a5c0e6' 
 };
 
@@ -53,10 +53,14 @@ export async function POST(req: Request) {
     let firstMessage = blueprint.firstMessage || "";
     firstMessage = firstMessage.replace(/{{business_name}}/g, businessName);
 
-    // 3. CONSTRUCT PAYLOAD (Removing Illegal Fields)
+    // 🚨 FIX: Create a Safe Name (Max 40 chars)
+    const rawName = `${blueprint.name} (${businessName})`;
+    const safeName = rawName.length > 40 ? rawName.substring(0, 40) : rawName;
+
+    // 3. CONSTRUCT PAYLOAD
     const newAssistantPayload = {
       ...blueprint, 
-      name: `${blueprint.name} (${businessName})`,
+      name: safeName, 
       firstMessage: firstMessage,
       model: {
         ...blueprint.model,
@@ -65,16 +69,13 @@ export async function POST(req: Request) {
           ...blueprint.model.messages.filter((m: any) => m.role !== 'system') 
         ]
       },
-      // ❌ REMOVE ALL READ-ONLY FIELDS TO PREVENT ERRORS
       id: undefined,
       orgId: undefined,
       createdAt: undefined,
       updatedAt: undefined,
-      isServerUrlSecretSet: undefined, // <--- THIS WAS THE CULPRIT
+      isServerUrlSecretSet: undefined,
       voice: {
         ...blueprint.voice,
-        // Sometimes voice objects have extra read-only fields too, safer to spread carefully if needed, 
-        // but usually just spreading blueprint.voice is fine.
       }
     };
 
