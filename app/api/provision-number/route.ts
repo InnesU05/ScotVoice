@@ -10,16 +10,14 @@ const twilioClient = Twilio(
 export const dynamic = 'force-dynamic';
 
 // --- 🧬 BLUEPRINT IDs ---
-// These are the "Master" assistants you created in Vapi.
-// The code will CLONE these and fill in the business name.
 const BLUEPRINT_IDS: Record<string, string> = {
-  // 1. COACH (Calum) - ID you just provided
+  // 1. COACH (Calum)
   'coach': '1f5287e0-7f42-437c-aa10-ac39bc5171ae', 
 
-  // 2. TRADIE (Rab) - The ID you gave earlier (Ensure this has {{business_name}} in its prompt too!)
+  // 2. TRADIE (Rab)
   'tradie': '6af03c9c-2797-4818-8dfc-eb604c247f3d',
 
-  // 3. PRO (Claire) - ⚠️ PASTE CLAIRE'S ID HERE
+  // 3. PRO (Claire) - Ensure this ID is correct!
   'pro': 'a5eaa6ce-db6e-4e35-bc31-2b8549a5c0e6' 
 };
 
@@ -31,11 +29,10 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     if (!businessName) return NextResponse.json({ error: 'Business Name required' }, { status: 400 });
 
-    // 1. Identify the Blueprint
     const blueprintId = BLUEPRINT_IDS[voiceId] || BLUEPRINT_IDS['tradie'];
     console.log(`🚀 Provisioning '${voiceId}' using Blueprint: ${blueprintId}`);
 
-    // 2. FETCH the Blueprint from Vapi (Download your dashboard settings)
+    // 1. FETCH Blueprint
     const blueprintResponse = await fetch(`https://api.vapi.ai/assistant/${blueprintId}`, {
       method: 'GET',
       headers: { 
@@ -49,38 +46,39 @@ export async function POST(req: Request) {
 
     const blueprint = await blueprintResponse.json();
 
-    // 3. PREPARE THE NEW ASSISTANT (The "Stamp" Logic)
-    // We take your prompt and replace {{business_name}} with the real name.
-    
-    // a. Fix System Prompt
+    // 2. PREPARE NEW ASSISTANT
     let systemMessage = blueprint.model.messages.find((m: any) => m.role === 'system')?.content || "";
     systemMessage = systemMessage.replace(/{{business_name}}/g, businessName);
 
-    // b. Fix First Message
     let firstMessage = blueprint.firstMessage || "";
     firstMessage = firstMessage.replace(/{{business_name}}/g, businessName);
 
-    // c. Construct the New Payload (Keeping your Voice/Model/Transcriber settings)
+    // 3. CONSTRUCT PAYLOAD (Removing Illegal Fields)
     const newAssistantPayload = {
-      ...blueprint, // Copy EVERYTHING (Voice, Transcriber, Server URL, etc.)
-      name: `${blueprint.name} (${businessName})`, // Unique Name for Dashboard
+      ...blueprint, 
+      name: `${blueprint.name} (${businessName})`,
       firstMessage: firstMessage,
       model: {
         ...blueprint.model,
         messages: [
           { role: 'system', content: systemMessage },
-          // Keep other messages if they exist (rare for Vapi assistants)
           ...blueprint.model.messages.filter((m: any) => m.role !== 'system') 
         ]
       },
-      // Remove ID fields so Vapi creates a NEW one
+      // ❌ REMOVE ALL READ-ONLY FIELDS TO PREVENT ERRORS
       id: undefined,
       orgId: undefined,
       createdAt: undefined,
-      updatedAt: undefined
+      updatedAt: undefined,
+      isServerUrlSecretSet: undefined, // <--- THIS WAS THE CULPRIT
+      voice: {
+        ...blueprint.voice,
+        // Sometimes voice objects have extra read-only fields too, safer to spread carefully if needed, 
+        // but usually just spreading blueprint.voice is fine.
+      }
     };
 
-    // 4. CREATE the Dedicated Assistant
+    // 4. CREATE Dedicated Assistant
     const createResponse = await fetch('https://api.vapi.ai/assistant', {
       method: 'POST',
       headers: {
@@ -98,7 +96,7 @@ export async function POST(req: Request) {
     const newAssistantId = newAssistant.id;
     console.log(`✅ Cloned & Stamped Assistant: ${newAssistantId}`);
 
-    // 5. BUY NUMBER & LINK (Standard Logic)
+    // 5. BUY NUMBER & LINK
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
@@ -129,7 +127,7 @@ export async function POST(req: Request) {
     if (!vapiImportResponse.ok) throw new Error(`Vapi Import Failed: ${await vapiImportResponse.text()}`);
     const vapiData = await vapiImportResponse.json();
 
-    // 6. SAVE TO DATABASE
+    // 6. SAVE TO DB
     const { error: dbError } = await supabaseAdmin
       .from('assistants')
       .insert({
