@@ -7,8 +7,9 @@ const twilioClient = Twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
+// --- HARDCODED ID MAP (Prevents Env Variable Mistakes) ---
 const VOICE_MAP: Record<string, string | undefined> = {
-  'tradie': process.env.VAPI_ASSISTANT_ID_TRADIE,
+  'tradie': '6af03c9c-2797-4818-8dfc-eb604c247f3d', // Rab's Real ID
   'pro': process.env.VAPI_ASSISTANT_ID_PRO,
   'coach': process.env.VAPI_ASSISTANT_ID_COACH,
 };
@@ -55,8 +56,7 @@ export async function POST(req: Request) {
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
         assistantId: selectedAssistantId,
         
-        // --- FIX: HARDCODED URL ---
-        // This guarantees Vapi gets the correct address.
+        // Hardcoded Server URL ensures Vapi always calls your code
         serverUrl: 'https://nessdial.co.uk/api/vapi-webhook',
       }),
     });
