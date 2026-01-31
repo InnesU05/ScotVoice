@@ -13,10 +13,8 @@ export async function POST(req: Request) {
       console.log('⚡ BYPASSING ID: Sending Transient Assistant...');
 
       return NextResponse.json({
-        // ❌ NO assistantId (This removes the "Not Found" risk)
-        // ✅ Define the assistant completely here:
         assistant: {
-          firstMessage: "This is a test. The connection is working perfectly.",
+          firstMessage: "Hello! This is a test. I am finally working!",
           model: {
             provider: "openai",
             model: "gpt-3.5-turbo",
@@ -24,9 +22,10 @@ export async function POST(req: Request) {
               { role: "system", content: "You are a helpful assistant." }
             ]
           },
+          // 👇 CHANGED THIS SECTION TO OPENAI (More reliable for testing)
           voice: {
-            provider: "11labs",
-            voiceId: "cjVigVc5kqAkXjuOp3xK" // Standard Voice
+            provider: "openai",
+            voiceId: "alloy" 
           }
         }
       });
