@@ -17,14 +17,6 @@ export async function POST(req: Request) {
   try {
     const YOUR_BUNDLE_SID = 'BUf1c5944923fe75b2b3b98629eab0d474'; 
 
-    // --- 1. CLEAN CHECK FOR BASE URL ---
-    // This ensures we never send "undefined" to Vapi
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-    if (!baseUrl) {
-      throw new Error("Configuration Error: NEXT_PUBLIC_BASE_URL is missing in Vercel.");
-    }
-    // -----------------------------------
-
     const { userId, businessName, voiceId } = await req.json();
 
     if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
@@ -34,7 +26,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid Voice Selection' }, { status: 400 });
     }
 
-    // 2. Buy Twilio Number
+    // 1. Buy Twilio Number
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
@@ -50,7 +42,7 @@ export async function POST(req: Request) {
 
     console.log(`✅ Number Purchased: ${purchasedNumber.phoneNumber}`);
 
-    // 3. Import to Vapi
+    // 2. Import to Vapi
     const vapiResponse = await fetch('https://api.vapi.ai/phone-number/import', {
       method: 'POST',
       headers: {
@@ -63,8 +55,9 @@ export async function POST(req: Request) {
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
         assistantId: selectedAssistantId,
         
-        // Use the variable (Now guaranteed to exist)
-        serverUrl: `${baseUrl}/api/vapi-webhook`,
+        // --- FIX: HARDCODED URL ---
+        // This guarantees Vapi gets the correct address.
+        serverUrl: 'https://nessdial.co.uk/api/vapi-webhook',
       }),
     });
 
@@ -76,7 +69,7 @@ export async function POST(req: Request) {
 
     const vapiData = await vapiResponse.json();
 
-    // 4. Save to Supabase
+    // 3. Save to Supabase
     const { error: dbError } = await supabaseAdmin
       .from('assistants')
       .insert({
