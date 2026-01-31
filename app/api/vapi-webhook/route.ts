@@ -1,37 +1,41 @@
 import { NextResponse } from 'next/server';
 
-// 🛑 DO NOT IMPORT supabaseAdmin here. 
-// If that file has a bad Key, it crashes the whole route before it starts.
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
   try {
-    // 1. Logging to prove Vapi reached us
-    console.log("🚀 VAPI REACHED THE SERVER - STARTING RESPONSE");
-
     const body = await req.json();
     const message = body.message;
 
-    // 2. Handle the "Who is this?" request
+    console.log(`📣 Vapi Event: ${message.type}`);
+
     if (message.type === 'assistant-request') {
-      console.log("⚡ Sending Hardcoded Rab ID...");
+      console.log('⚡ BYPASSING ID: Sending Transient Assistant...');
 
       return NextResponse.json({
-        // This is the Rab ID you gave me.
-        // If this fails, the ID itself is wrong/from a different account.
-        assistantId: "6af03c9c-2797-4818-8dfc-eb604c247f3d", 
+        // ❌ NO assistantId (This removes the "Not Found" risk)
+        // ✅ Define the assistant completely here:
         assistant: {
-          variableValues: {
-            business_name: "CONNECTION SUCCESSFUL",
+          firstMessage: "This is a test. The connection is working perfectly.",
+          model: {
+            provider: "openai",
+            model: "gpt-3.5-turbo",
+            messages: [
+              { role: "system", content: "You are a helpful assistant." }
+            ]
+          },
+          voice: {
+            provider: "11labs",
+            voiceId: "cjVigVc5kqAkXjuOp3xK" // Standard Voice
           }
         }
       });
     }
 
-    // 3. Handle End of Call (Just say OK)
     return NextResponse.json({ message: 'Handled' });
 
   } catch (error: any) {
-    console.error("🚨 Fatal Error:", error.message);
+    console.error('🚨 Error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
