@@ -7,7 +7,6 @@ const twilioClient = Twilio(
   process.env.TWILIO_AUTH_TOKEN
 );
 
-// Map the user's choice to your Env Variables
 const VOICE_MAP: Record<string, string | undefined> = {
   'tradie': process.env.VAPI_ASSISTANT_ID_TRADIE,
   'pro': process.env.VAPI_ASSISTANT_ID_PRO,
@@ -16,22 +15,26 @@ const VOICE_MAP: Record<string, string | undefined> = {
 
 export async function POST(req: Request) {
   try {
-    // --- CONFIGURATION ---
     const YOUR_BUNDLE_SID = 'BUf1c5944923fe75b2b3b98629eab0d474'; 
-    // ---------------------
+
+    // --- 1. CLEAN CHECK FOR BASE URL ---
+    // This ensures we never send "undefined" to Vapi
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    if (!baseUrl) {
+      throw new Error("Configuration Error: NEXT_PUBLIC_BASE_URL is missing in Vercel.");
+    }
+    // -----------------------------------
 
     const { userId, businessName, voiceId } = await req.json();
 
     if (!userId) return NextResponse.json({ error: 'User ID required' }, { status: 400 });
     
     const selectedAssistantId = VOICE_MAP[voiceId];
-    
     if (!selectedAssistantId) {
-      console.error('Missing Assistant ID for:', voiceId);
-      return NextResponse.json({ error: 'Invalid Voice Selection (Assistant ID missing)' }, { status: 400 });
+      return NextResponse.json({ error: 'Invalid Voice Selection' }, { status: 400 });
     }
 
-    // 3. Search & Buy Twilio Number
+    // 2. Buy Twilio Number
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
       .mobile
       .list({ limit: 1 });
@@ -39,16 +42,15 @@ export async function POST(req: Request) {
     if (availableNumbers.length === 0) throw new Error('No UK numbers available');
     const chosenNumber = availableNumbers[0];
 
-    // BUY NUMBER
     const purchasedNumber = await twilioClient.incomingPhoneNumbers.create({
       phoneNumber: chosenNumber.phoneNumber,
       friendlyName: `NessDial: ${businessName} (${voiceId})`,
-      bundleSid: YOUR_BUNDLE_SID,
+      bundleSid: YOUR_BUNDLE_SID, 
     });
 
     console.log(`✅ Number Purchased: ${purchasedNumber.phoneNumber}`);
 
-    // 4. Import to Vapi (FIXED PAYLOAD STRUCTURE)
+    // 3. Import to Vapi
     const vapiResponse = await fetch('https://api.vapi.ai/phone-number/import', {
       method: 'POST',
       headers: {
@@ -56,14 +58,13 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        twilioPhoneNumber: purchasedNumber.phoneNumber, 
+        twilioPhoneNumber: purchasedNumber.phoneNumber,
         twilioAccountSid: process.env.TWILIO_ACCOUNT_SID,
         twilioAuthToken: process.env.TWILIO_AUTH_TOKEN,
         assistantId: selectedAssistantId,
         
-        // --- THE ONLY CHANGE IS HERE ---
-        // This tells Vapi: "Ask my server for the business name when this number calls"
-        serverUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/vapi-webhook`,
+        // Use the variable (Now guaranteed to exist)
+        serverUrl: `${baseUrl}/api/vapi-webhook`,
       }),
     });
 
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
 
     const vapiData = await vapiResponse.json();
 
-    // 5. Save to Supabase
+    // 4. Save to Supabase
     const { error: dbError } = await supabaseAdmin
       .from('assistants')
       .insert({
