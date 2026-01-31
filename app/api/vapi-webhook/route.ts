@@ -31,7 +31,7 @@ export async function POST(req: Request) {
         // Fallback: Return Rab's ID (You must replace this with your actual Assistant ID)
         // You can find this ID in Vapi Dashboard -> Assistants -> ID
         return NextResponse.json({ 
-          assistantId: "YOUR_DEFAULT_ASSISTANT_ID_HERE", 
+          assistantId: "6af03c9c-2797-4818-8dfc-eb604c247f3d", 
           assistant: { variableValues: { business_name: "Valued Customer" } } 
         });
       }
