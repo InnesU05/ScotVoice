@@ -10,7 +10,9 @@ export async function POST(req: Request) {
 
     console.log(`📣 Vapi Event: ${message.type}`);
 
-    // 1. INCOMING CALL
+    // ==========================================
+    // 1. INCOMING CALL (Your Existing Logic)
+    // ==========================================
     if (message.type === 'assistant-request') {
       
       const calledNumber = message.call.phoneNumberId; 
@@ -48,9 +50,7 @@ export async function POST(req: Request) {
           variableValues: {
             business_name: businessName,
           },
-          // 🛡️ SAFETY OVERRIDE: 
-          // If the Assistant ID has a broken voice, this overrides it to a safe one.
-          // You can remove this 'voice' block later once you fix your ElevenLabs key.
+          // 🛡️ SAFETY OVERRIDE (Preserved as requested)
           voice: {
             provider: "playht",
             voiceId: "jennifer" 
@@ -59,10 +59,47 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2. END OF CALL REPORT
+    // ==========================================
+    // 2. END OF CALL REPORT (New Logging Logic)
+    // ==========================================
     if (message.type === 'end-of-call-report') {
-        // (Keep your logging logic here if you want it)
-        console.log('📝 Call Ended.');
+      const call = message.call;
+      const analysis = message.analysis || {}; 
+      
+      console.log(`📞 Call Ended. ID: ${call.id}`);
+
+      // A. Find the User
+      const { data: assistantRecord, error: lookupError } = await supabaseAdmin
+        .from('assistants')
+        .select('user_id')
+        .eq('vapi_assistant_id', call.assistantId) 
+        .maybeSingle();
+
+      if (lookupError || !assistantRecord) {
+        console.error('❌ Could not find user for this call:', call.assistantId);
+      } else {
+        // B. Save to 'calls' table
+        const { error: insertError } = await supabaseAdmin
+          .from('calls')
+          .insert({
+            user_id: assistantRecord.user_id,
+            assistant_id: call.assistantId,
+            customer_number: call.customer?.number || 'Unknown',
+            status: message.endedReason || 'completed',
+            duration_seconds: Math.round(message.durationSeconds || 0),
+            summary: analysis.summary || "No summary provided.",
+            recording_url: message.recordingUrl || null,
+            started_at: call.startedAt || new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.error('❌ Failed to save call log:', insertError);
+        } else {
+          console.log('✅ Call Log Saved Successfully');
+        }
+      }
+      
+      return NextResponse.json({ status: 'Logged' }, { status: 200 });
     }
 
     return NextResponse.json({ message: 'Handled' });
