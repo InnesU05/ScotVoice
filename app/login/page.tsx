@@ -66,9 +66,9 @@ function LoginContent() {
         </Link>
 
         <div className="text-center mb-8">
-           <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg shadow-blue-600/30">
-             <Phone className="w-7 h-7 text-white" />
-           </div>
+           {/* 🚨 LOGO REPLACEMENT HERE */}
+           <img src="/logo.png" alt="NessDial" className="w-14 h-14 rounded-2xl mx-auto mb-5 shadow-lg shadow-blue-600/30" />
+           
            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
              {isSignUp ? 'Join NessDial' : 'Welcome Back'}
            </h1>

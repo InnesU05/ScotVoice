@@ -19,9 +19,8 @@ const Navbar = () => {
         <div className="flex justify-between h-20 items-center">
           {/* Logo */}
           <Link href="/" className="flex-shrink-0 flex items-center gap-3 cursor-pointer">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-700 to-blue-900 rounded-xl flex items-center justify-center shadow-lg shadow-blue-900/20">
-               <Phone className="w-5 h-5 text-white" />
-            </div>
+            {/* 🚨 LOGO REPLACEMENT HERE */}
+            <img src="/logo.png" alt="NessDial" className="w-10 h-10 rounded-xl shadow-lg shadow-blue-900/20" />
             <span className="font-bold text-2xl tracking-tight text-slate-900">NessDial</span>
           </Link>
 
@@ -560,9 +559,8 @@ const Footer = () => {
     <footer className="bg-white text-slate-600 py-12 border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-           <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center">
-             <Phone className="w-4 h-4 text-white" />
-           </div>
+           {/* 🚨 LOGO REPLACEMENT HERE */}
+           <img src="/logo.png" alt="NessDial" className="w-8 h-8 rounded-lg" />
            <span className="text-slate-900 font-bold text-xl">NessDial</span>
         </div>
         <p className="text-sm">© {new Date().getFullYear()} NessDial AI. Made in Scotland.</p>

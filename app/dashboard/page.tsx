@@ -194,8 +194,9 @@ export default function Dashboard() {
       
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#0F172A]/80 px-6 backdrop-blur-md">
-        <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white font-bold shadow-lg shadow-blue-900/20">N</div>
+        <div className="flex items-center gap-3">
+          {/* 🚨 LOGO REPLACEMENT HERE */}
+          <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
           <span className="text-lg font-bold tracking-tight text-white">NessDial</span>
         </div>
         <button onClick={() => setIsSettingsOpen(true)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
@@ -293,7 +294,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 3. CALL LOGS (Optimized for Mobile) */}
+        {/* 3. CALL LOGS */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-sm font-semibold text-slate-400">Recent Activity</h2>
