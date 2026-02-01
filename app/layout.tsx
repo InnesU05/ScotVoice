@@ -15,10 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NessDial",
   description: "The AI Receptionist for Scottish Trades",
-  // 🚨 ADD THIS BLOCK FOR THE APP ICON
   icons: {
-    icon: '/logo.png',
-    apple: '/logo.png', // For iPhone "Add to Home Screen"
+    icon: '/logo.png',       // Browser Tab (Keep the squircle with transparency)
+    apple: '/apple-icon.png', // iPhone Home Screen (Use the NEW SQUARE opaque image)
   }
 };
 
