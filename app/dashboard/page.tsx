@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { 
@@ -8,23 +8,119 @@ import {
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock
 } from 'lucide-react';
 
+// --- CUSTOM AUDIO PLAYER COMPONENT ---
+// This handles the interactive progress bar and seeking logic
+function AudioPlayer({ src }: { src: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [duration, setDuration] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+
+  // Format seconds into mm:ss
+  const formatTime = (time: number) => {
+    if (isNaN(time)) return "0:00";
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (isPlaying) {
+      audio.pause();
+    } else {
+      // Pause all other audios on the page (optional nice-to-have)
+      document.querySelectorAll('audio').forEach((el) => {
+        if (el !== audio) (el as HTMLAudioElement).pause();
+      });
+      audio.play();
+    }
+    setIsPlaying(!isPlaying);
+  };
+
+  const handleTimeUpdate = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (audioRef.current) {
+      setDuration(audioRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    if (audioRef.current) {
+      audioRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+  };
+
+  return (
+    <div className="w-full bg-slate-950/50 rounded-xl p-3 border border-slate-800/50 mt-3">
+      <audio 
+        ref={audioRef}
+        src={src}
+        onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleLoadedMetadata}
+        onEnded={handleEnded}
+        onPause={() => setIsPlaying(false)}
+        onPlay={() => setIsPlaying(true)}
+      />
+      
+      <div className="flex items-center gap-3">
+        <button 
+          onClick={togglePlay}
+          className="flex-shrink-0 h-10 w-10 flex items-center justify-center rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20"
+        >
+          {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current ml-0.5" />}
+        </button>
+
+        <div className="flex-1 flex flex-col justify-center gap-1">
+          {/* Draggable Range Slider */}
+          <input 
+            type="range"
+            min="0"
+            max={duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="w-full h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500 hover:accent-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          />
+          <div className="flex justify-between text-[10px] font-medium text-slate-500 font-mono">
+            <span>{formatTime(currentTime)}</span>
+            <span>{formatTime(duration)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Data
+  // Data State
   const [user, setUser] = useState<any>(null);
   const [assistantData, setAssistantData] = useState<any>(null);
   const [businessName, setBusinessName] = useState("");
   const [calls, setCalls] = useState<any[]>([]);
   
-  // UI
+  // UI State
   const [isEditingName, setIsEditingName] = useState(false);
   const [newNameInput, setNewNameInput] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("tradie");
-  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -84,25 +180,6 @@ export default function Dashboard() {
     if (confirm("Are you sure you want to sign out?")) {
       await supabase.auth.signOut();
       router.push('/login');
-    }
-  };
-
-  // Audio Player Logic
-  const toggleAudio = (id: string) => {
-    const audio = document.getElementById(`audio-${id}`) as HTMLAudioElement;
-    if (!audio) return;
-    
-    if (playingAudioId === id) {
-      audio.pause();
-      setPlayingAudioId(null);
-    } else {
-      // Pause others
-      if (playingAudioId) {
-        const prev = document.getElementById(`audio-${playingAudioId}`) as HTMLAudioElement;
-        if (prev) prev.pause();
-      }
-      audio.play();
-      setPlayingAudioId(id);
     }
   };
 
@@ -216,7 +293,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 3. CALL LOGS */}
+        {/* 3. CALL LOGS (Optimized for Mobile) */}
         <div>
           <div className="flex items-center justify-between mb-4 px-1">
             <h2 className="text-sm font-semibold text-slate-400">Recent Activity</h2>
@@ -236,57 +313,48 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               {calls.map((call) => (
-                <div key={call.id} className="group bg-slate-900 p-5 rounded-2xl border border-slate-800 hover:border-slate-700 transition-all shadow-sm">
+                <div key={call.id} className="group bg-slate-900 p-5 rounded-3xl border border-slate-800 hover:border-slate-700 transition-all shadow-sm">
                   
-                  {/* Top Row: Info & Status */}
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`h-10 w-10 rounded-full flex items-center justify-center ${
-                        call.status === 'completed' ? 'bg-green-500/10 text-green-400' : 'bg-slate-800 text-slate-500'
+                  {/* Top Row: Flex on Desktop, Column on Mobile to fix "Cramped" look */}
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                    
+                    {/* Caller Info */}
+                    <div className="flex items-center gap-4">
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                        call.status === 'completed' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-500'
                       }`}>
-                        <User className="h-5 w-5" />
+                        <User className="h-6 w-6" />
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">{call.customer_number}</p>
-                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                          <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> {new Date(call.started_at).toLocaleDateString()}</span>
-                          <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {new Date(call.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        <p className="text-base font-bold text-white tracking-tight">{call.customer_number}</p>
+                        <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-0.5">
+                          <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {new Date(call.started_at).toLocaleDateString()}</span>
+                          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {new Date(call.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                         </div>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wide ${
-                       call.status === 'completed' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 
-                       'bg-red-500/10 text-red-400 border border-red-500/20'
-                    }`}>
-                      {call.status}
-                    </span>
+
+                    {/* Status Badge (Moved to own line on very small screens, or right on bigger) */}
+                    <div className="self-start">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
+                         call.status === 'completed' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                         'bg-red-500/10 text-red-400 border-red-500/20'
+                      }`}>
+                        {call.status}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Summary Box */}
-                  <div className="bg-slate-950/50 p-3 rounded-xl border border-slate-800/50 mb-3">
-                    <p className="text-xs text-slate-400 leading-relaxed italic">
-                      "{call.summary || "No summary provided."}"
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/50">
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      {call.summary ? call.summary : <span className="italic opacity-50">No summary available for this call.</span>}
                     </p>
                   </div>
 
-                  {/* Audio Player (Custom UI) */}
+                  {/* Audio Player (New Interactive Component) */}
                   {call.recording_url && (
-                    <div className="flex items-center gap-3 mt-2">
-                      <button 
-                        onClick={() => toggleAudio(call.id)}
-                        className="flex items-center justify-center h-8 w-8 rounded-full bg-blue-600 text-white hover:bg-blue-500 transition-colors"
-                      >
-                        {playingAudioId === call.id ? <Pause className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
-                      </button>
-                      <div className="h-1 flex-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div className={`h-full bg-blue-500 w-1/3 ${playingAudioId === call.id ? 'animate-pulse' : ''}`}></div>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                         {call.duration_seconds}s
-                      </span>
-                      {/* Hidden Audio Element */}
-                      <audio id={`audio-${call.id}`} src={call.recording_url} onEnded={() => setPlayingAudioId(null)} />
-                    </div>
+                    <AudioPlayer src={call.recording_url} />
                   )}
                 </div>
               ))}
