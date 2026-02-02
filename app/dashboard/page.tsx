@@ -4,11 +4,13 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+// FIX: Added 'Check' and 'LogOut' to the import list
 import { 
-  Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
+  Settings, Phone, Edit2, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy, AlertCircle, Mail, Star, Download, Trash2, Zap
+  HelpCircle, AlertCircle, Mail, Star, Download, Trash2, Zap, 
+  PhoneForwarded, Check, LogOut 
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT (Unchanged) ---
@@ -110,10 +112,6 @@ export default function Dashboard() {
   const [updating, setUpdating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Setup Guide State
-  const [isSetupOpen, setIsSetupOpen] = useState(false);
-  const [deviceType, setDeviceType] = useState<'iphone' | 'android'>('iphone');
-
   // Collapsible States
   const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
@@ -159,6 +157,11 @@ export default function Dashboard() {
 
       const { data: assistant } = await supabase.from('assistants').select('*').eq('user_id', user.id).single();
       setAssistantData(assistant);
+      
+      // Set active voice if found
+      if (assistant?.active_voice_id) {
+          setSelectedVoice(assistant.active_voice_id);
+      }
 
       const { data: callLogs } = await supabase.from('calls').select('*').eq('user_id', user.id).order('started_at', { ascending: false }).limit(20);
       if (callLogs) setCalls(callLogs);
@@ -233,11 +236,6 @@ export default function Dashboard() {
     }
   };
 
-  const getCleanNumber = () => {
-    const raw = assistantData?.twilio_phone_number || "";
-    return raw.replace(/[^0-9+]/g, '');
-  };
-
   // Helper for Usage Bar
   const usagePercent = Math.min((usageStats.used / usageStats.limit) * 100, 100);
   const isUsageHigh = usagePercent > 80;
@@ -263,7 +261,7 @@ export default function Dashboard() {
 
       <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
         
-        {/* --- USAGE BAR (NEW) --- */}
+        {/* --- USAGE BAR --- */}
         <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
             <div className="flex justify-between items-end mb-2">
                 <div className="flex items-center gap-2">
@@ -337,13 +335,14 @@ export default function Dashboard() {
                   </p>
                 </div>
               </div>
-              <button 
-                onClick={() => setIsSetupOpen(true)}
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                Setup Forwarding
-              </button>
+              
+              {/* UPDATED LINK */}
+              <Link href="/dashboard/setup-guide">
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20">
+                    <PhoneForwarded className="h-3.5 w-3.5" />
+                    Connect Guide
+                </button>
+              </Link>
             </div>
 
             {/* User Number (Stacked on Mobile) */}
@@ -411,7 +410,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xl">
-                {selectedVoice === 'tradie' ? '🔨' : selectedVoice === 'pro' ? '💼' : '🔥'}
+                {selectedVoice === 'tradie' ? '畑' : selectedVoice === 'pro' ? '直' : '櫨'}
               </div>
               <div className="text-left">
                 <h2 className="text-sm font-bold text-white">Active Persona</h2>
@@ -429,9 +428,9 @@ export default function Dashboard() {
             <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-1 gap-3 mt-4">
                 {[
-                  { id: 'tradie', icon: '🔨', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
-                  { id: 'pro', icon: '💼', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
-                  { id: 'coach', icon: '🔥', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
+                  { id: 'tradie', icon: '畑', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
+                  { id: 'pro', icon: '直', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
+                  { id: 'coach', icon: '櫨', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
                 ].map((voice) => (
                   <button 
                     key={voice.id}
@@ -555,7 +554,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- SETTINGS SLIDE-OUT (Unchanged) --- */}
+      {/* --- SETTINGS SLIDE-OUT --- */}
       <div 
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSettingsOpen(false)}
@@ -589,6 +588,13 @@ export default function Dashboard() {
             {/* Support Group */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
+              
+              {/* UPDATED LINK */}
+              <Link href="/dashboard/setup-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <PhoneForwarded className="h-5 w-5 text-green-400" />
+                <div><p className="text-sm font-medium text-white">Setup Guide</p><p className="text-xs text-slate-500">How to connect</p></div>
+              </Link>
+
               <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Mail className="h-5 w-5 text-slate-400" />
                 <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
@@ -596,10 +602,6 @@ export default function Dashboard() {
               <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Download className="h-5 w-5 text-blue-400" />
                 <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
-              </Link>
-              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Star className="h-5 w-5 text-yellow-500" />
-                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
               </Link>
             </div>
 
@@ -621,137 +623,6 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
-      
-      {/* ... Setup Wizard (Unchanged) ... */}
-      {isSetupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
-                
-                {/* Header */}
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-                    <div>
-                        <h2 className="text-xl font-bold text-white">Setup Voicemail</h2>
-                        <p className="text-xs text-slate-400 mt-1">Route unanswered calls to NessDial</p>
-                    </div>
-                    <button onClick={() => setIsSetupOpen(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-                        <X className="h-5 w-5" />
-                    </button>
-                </div>
-
-                {/* Device Tabs */}
-                <div className="flex border-b border-slate-800 shrink-0">
-                    <button 
-                        onClick={() => setDeviceType('iphone')}
-                        className={`flex-1 py-4 text-sm font-bold text-center transition-colors ${deviceType === 'iphone' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                    >
-                        iPhone
-                    </button>
-                    <button 
-                        onClick={() => setDeviceType('android')}
-                        className={`flex-1 py-4 text-sm font-bold text-center transition-colors ${deviceType === 'android' ? 'bg-slate-800 text-white border-b-2 border-green-500' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
-                    >
-                        Android
-                    </button>
-                </div>
-
-                {/* Scrollable Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                    
-                    {/* Step 1: The Code (Primary) */}
-                    <section>
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">Method 1 (Easiest)</span>
-                            <h3 className="font-bold text-white">Dial the Code</h3>
-                        </div>
-                        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
-                            This creates a rule: "If I don't answer in 20 seconds, send the call to NessDial."
-                        </p>
-                        
-                        <div className="bg-black/30 p-4 rounded-xl border border-slate-700 space-y-3">
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">1</div>
-                                <p className="text-sm text-slate-300">Open your <strong>Phone / Keypad</strong> app.</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">2</div>
-                                <div className="flex-1">
-                                    <p className="text-sm text-slate-300 mb-2">Type this exact code and press <strong>Call</strong>:</p>
-                                    
-                                    {/* --- FONT SIZE FIX HERE --- */}
-                                    <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-xs sm:text-sm text-green-400 tracking-wider shadow-inner break-all">
-                                        <span className="flex-1">
-                                            **61*{getCleanNumber()}*11*20#
-                                        </span>
-                                        <button 
-                                            onClick={() => {
-                                                navigator.clipboard.writeText(`**61*${getCleanNumber()}*11*20#`);
-                                                alert("Code copied!");
-                                            }}
-                                            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors shrink-0"
-                                        >
-                                            <Copy className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">3</div>
-                                <p className="text-sm text-slate-300">
-                                    Wait for a "Registration Succeeded" message.
-                                </p>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Step 2: Manual Method (Fallback) */}
-                    <section className="border-t border-slate-800 pt-6">
-                        <div className="flex items-center gap-2 mb-3">
-                            <span className="bg-slate-700 text-slate-200 text-xs font-bold px-2 py-0.5 rounded">Method 2 (Manual)</span>
-                            <h3 className="font-bold text-white">Phone Settings</h3>
-                        </div>
-                        
-                        {deviceType === 'iphone' ? (
-                            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-300 space-y-2">
-                                <p className="flex gap-2"><AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" /> <strong>Note:</strong> Most UK carriers hide this menu on iPhone. Use Method 1 if possible.</p>
-                                <ol className="list-decimal pl-5 space-y-1 text-slate-400">
-                                    <li>Go to <strong>Settings</strong> {'>'} <strong>Phone</strong>.</li>
-                                    <li>Tap <strong>Call Forwarding</strong> (if available).</li>
-                                    <li>If you only see a simple "On/Off" switch, your carrier forces "All Calls" forwarding here. You MUST use Method 1 (the code) for voicemail replacement.</li>
-                                </ol>
-                            </div>
-                        ) : (
-                            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-400 space-y-2">
-                                <ol className="list-decimal pl-5 space-y-2">
-                                    <li>Open the <strong>Phone App</strong>.</li>
-                                    <li>Tap the <strong>3 dots (Menu)</strong> {'>'} <strong>Settings</strong>.</li>
-                                    <li>Tap <strong>Calling Accounts</strong> (or Supplementary Services).</li>
-                                    <li>Tap <strong>Call Forwarding</strong> {'>'} <strong>Voice</strong>.</li>
-                                    <li>Tap <strong>"When unanswered"</strong>.</li>
-                                    <li>Enter your NessDial Number: <span className="text-white font-mono select-all">{getCleanNumber()}</span></li>
-                                    <li>Tap <strong>Turn On</strong>.</li>
-                                </ol>
-                            </div>
-                        )}
-                    </section>
-
-                    {/* Step 3: Test */}
-                    <section className="bg-green-900/10 p-4 rounded-xl border border-green-500/20 text-center">
-                        <h3 className="font-bold text-green-400 mb-2">Final Step: Test It!</h3>
-                        <p className="text-sm text-green-200/70 mb-4">
-                            Call your mobile from a different phone. <strong>Don't answer.</strong> After 20 seconds, does NessDial pick up?
-                        </p>
-                        <button 
-                            onClick={() => setIsSetupOpen(false)}
-                            className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors shadow-lg"
-                        >
-                            I'm All Set up
-                        </button>
-                    </section>
-
-                </div>
-            </div>
-        </div>
-      )}
     </div>
   );
 }
