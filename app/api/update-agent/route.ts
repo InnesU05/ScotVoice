@@ -9,54 +9,49 @@ const BLUEPRINTS = {
   'pro': 'a5eaa6ce-db6e-4e35-bc31-2b8549a5c0e6'
 };
 
-// --- 🎭 SMART, EFFICIENT PERSONAS (Hooroo-Style) ---
+// --- 🎭 SMART PERSONAS (Strict "Don't Ask Number" Rules) ---
 const PERSONAS = {
   'tradie': `
     # IDENTITY
     You are "Rab", the efficient Scottish receptionist for {{business_name}}.
     
     # YOUR VIBE
-    - You are like a "Hooroo" AI agent: Fast, polite, effective.
     - **Accent:** Scottish. Use "No bother", "Cheers", "Aye".
-    - **Tone:** Friendly but busy. You don't have time for a chat. You are here to take a message.
+    - **Tone:** Friendly but busy. Efficient.
     
-    # CRITICAL RULE: CALLER ID
-    - **YOU ALREADY HAVE THEIR PHONE NUMBER.**
-    - **NEVER ASK:** "Can I have your number?"
-    - **INSTEAD SAY:** "I've got your number here, I'll get the boss to give you a bell back on this."
-    - Only ask for a number if they explicitly say "Call me on a different line."
+    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
+    - You CAN SEE the caller's number on your screen (Caller ID).
+    - **NEVER ASK:** "Can I have your number?" or "What's your number?"
+    - **INSTEAD SAY:** "I've got your number here on the screen, I'll get the boss to ring you back on this."
+    - Only ask if they explicitly say "Call me on a different line."
   `,
   'pro': `
     # IDENTITY
     You are "Claire", the executive receptionist for {{business_name}}.
     
     # YOUR VIBE
-    - Highly professional, crisp, and concise.
-    - **Tone:** High-end concierge. "Certainly," "Immediately."
-    - **Efficiency:** Do not waste the caller's time. Get the details, confirm the callback, and end the call.
+    - **Tone:** Professional, crisp, concise.
     
-    # CRITICAL RULE: CALLER ID
-    - **YOU ALREADY HAVE THEIR PHONE NUMBER.**
-    - **NEVER ASK:** "What is your phone number?"
-    - **INSTEAD SAY:** "I have your contact details captured. We will return your call shortly."
+    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
+    - You CAN SEE the caller's number.
+    - **NEVER ASK:** "May I have your phone number?"
+    - **INSTEAD SAY:** "I have captured your contact details from the display. We will return your call shortly."
   `,
   'coach': `
     # IDENTITY
     You are "Calum", the front-desk lead for {{business_name}}.
     
     # YOUR VIBE
-    - High energy, super fast.
-    - **Tone:** "Awesome," "Got it," "100%."
-    - **Speed:** Keep the call under 60 seconds if possible.
+    - **Tone:** High energy, super fast.
     
-    # CRITICAL RULE: CALLER ID
-    - **YOU ALREADY HAVE THEIR PHONE NUMBER.**
-    - **NEVER ASK:** "What's your number?"
+    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
+    - You CAN SEE the caller's number.
+    - **NEVER ASK:** "What's your digits?"
     - **INSTEAD SAY:** "I've locked in your number from the caller ID. We'll hit you back ASAP."
   `
 };
 
-// --- HELPER: GENERATE THE FULL PROMPT ---
+// --- HELPER: GENERATE PROMPT ---
 function constructSystemPrompt(activeVoiceId: string, profile: any) {
   const businessName = profile?.business_name || "The Business";
   
@@ -82,13 +77,13 @@ function constructSystemPrompt(activeVoiceId: string, profile: any) {
   1. **ANSWER:** "Hi, thanks for calling ${businessName}, this is [Name]. How can I help?"
   2. **FILTER:** If they ask a simple question (hours/price) AND it's in the Green Box above -> Answer it.
   3. **TAKE MESSAGE:** If they want to book, chat, or ask something complex -> "I don't have the diary in front of me, but I'll grab your details and get the boss to call you back."
-  4. **CONFIRM NUMBER:** "I've got your number from the display. Is this the best one to call you back on?"
+  4. **CONFIRM NUMBER (DON'T ASK):** "I've got your number here from the display. Is this the best one to call you back on?"
   5. **END:** "Great, I've passed that on. Cheers!" -> **HANG UP.**
 
   # STRICT RULES
   - **DO NOT** make up opening hours.
   - **DO NOT** offer to "schedule" an appointment directly (you can't see the calendar). Just take the request.
-  - **DO NOT** ask for the phone number unless the Caller ID is hidden.
+  - **DO NOT** ask for the phone number unless the Caller ID is hidden or they offer a different one.
   `;
 }
 
@@ -133,48 +128,71 @@ export async function POST(req: Request) {
       };
 
       if (isNew && blueprint) {
+        // Creating a new assistant (Switch Voice)
         let firstMsg = (blueprint.firstMessage || "Hello.");
         firstMsg = firstMsg.replace(/{{business_name}}/g, businessName);
 
         apiPayload.name = `${(blueprint as any).name} (${profile?.business_name})`.substring(0, 40);
         apiPayload.firstMessage = firstMsg;
+        // Keep the high-quality voice settings from the blueprint
         apiPayload.voice = (blueprint as any).voice; 
         apiPayload.transcriber = (blueprint as any).transcriber;
         apiPayload.analysisPlan = { summaryPlan: { enabled: true } };
 
+        // Clean the blueprint to remove IDs
         const { id, orgId, createdAt, updatedAt, ...cleanBlueprint } = blueprint;
         // Merge but prioritize our new payload
-        Object.assign(cleanBlueprint, apiPayload);
+        const finalBody = { ...cleanBlueprint, ...apiPayload };
         
-        // We return the cleaned object for the POST request
-        return await fetch('https://api.vapi.ai/assistant', {
+        console.log("Creating New Assistant:", JSON.stringify(finalBody));
+
+        const res = await fetch('https://api.vapi.ai/assistant', {
             method: 'POST',
             headers: {
               'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(cleanBlueprint),
-        }).then(r => r.json());
+            body: JSON.stringify(finalBody),
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error("Vapi Create Error:", errText);
+            throw new Error(`Failed to create assistant: ${errText}`);
+        }
+        return await res.json();
+
       } else {
-        // PATCH existing
-        return await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
+        // PATCH existing assistant (Update Prompt)
+        console.log(`Updating Assistant ${assistantId}...`);
+        
+        const res = await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
             method: 'PATCH',
             headers: {
               'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(apiPayload),
-        }).then(r => r.json());
+        });
+
+        if (!res.ok) {
+            const errText = await res.text();
+            console.error("Vapi Update Error:", errText);
+            throw new Error(`Failed to update assistant: ${errText}`);
+        }
+        return await res.json();
       }
     };
 
 
-    // --- ACTION 1: UPDATE PROMPT ---
+    // --- ACTION 1: UPDATE PROMPT (Training Save) ---
     if (action === 'update_prompt') {
       try {
         await updateVapiAssistant(currentAssistantId, activeVoiceId);
         return NextResponse.json({ success: true });
       } catch (err: any) {
+        // If 404, it means the assistant was manually deleted in Vapi.
+        // We catch this so the UI doesn't crash, but warn the user.
         if (err.message.includes('404')) {
             return NextResponse.json({ error: "Assistant not found. Please switch voices to reset." }, { status: 404 });
         }
@@ -183,11 +201,12 @@ export async function POST(req: Request) {
     }
 
 
-    // --- ACTION 2: SWITCH VOICE ---
+    // --- ACTION 2: SWITCH VOICE (New Agent) ---
     if (action === 'switch_voice') {
       const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
       const targetBlueprintId = BLUEPRINTS[voiceId];
       
+      // Fetch Blueprint
       const bpRes = await fetch(`https://api.vapi.ai/assistant/${targetBlueprintId}`, {
         headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
       });
@@ -197,7 +216,7 @@ export async function POST(req: Request) {
       // Create New
       const newAssistant = await updateVapiAssistant(null, voiceId, true, blueprint);
 
-      // Link
+      // Link Number
       await fetch(`https://api.vapi.ai/phone-number/${record.vapi_phone_number_id}`, {
         method: 'PATCH',
         headers: {
@@ -213,7 +232,7 @@ export async function POST(req: Request) {
           active_voice_id: voiceId 
       }).eq('id', record.id);
 
-      // Cleanup Old
+      // Cleanup Old (Ignore errors)
       if (currentAssistantId && !Object.values(BLUEPRINTS).includes(currentAssistantId)) {
         try {
             await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
