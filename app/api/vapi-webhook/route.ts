@@ -41,7 +41,6 @@ export async function POST(req: Request) {
         .single();
 
       let businessName = "Valued Customer";
-      // 🚨 FIX: Initialize as null, do NOT use a fake hardcoded ID
       let assistantIdToUse: string | null = null; 
       
       let trainingContext = "No specific business details provided. Take a message.";
@@ -63,16 +62,19 @@ export async function POST(req: Request) {
 
         // --- 🧠 CONSTRUCT KNOWLEDGE BASE ---
         if (profile) {
+            // We build this string to be extremely clear for the AI
             trainingContext = `
+            == BUSINESS KNOWLEDGE BASE (USE THIS DATA) ==
             BUSINESS NAME: ${businessName}
             
-            ${profile.business_description ? `WHAT WE DO:\n${profile.business_description}` : ''}
+            ${profile.business_description ? `[WHAT WE DO]:\n${profile.business_description}` : ''}
             
-            ${profile.opening_hours ? `OPENING HOURS:\n${profile.opening_hours}` : 'OPENING HOURS: Not specified. Do NOT guess.'}
+            ${profile.opening_hours ? `[OPENING HOURS]:\n${profile.opening_hours}` : '[OPENING HOURS]: Not specified. Do NOT guess.'}
             
-            ${profile.services ? `SERVICES & PRICING:\n${profile.services}` : ''}
+            ${profile.services ? `[SERVICES & PRICING]:\n${profile.services}` : ''}
             
-            ${profile.faqs ? `SPECIFIC Q&A (FAQs):\n${profile.faqs}` : ''}
+            ${profile.faqs ? `[SPECIFIC Q&A / FAQs]:\n${profile.faqs}` : ''}
+            ==============================================
             `;
         }
 
@@ -83,17 +85,17 @@ export async function POST(req: Request) {
       
       console.log(`✅ Injecting Name: ${businessName} | Persona: ${activePersona}`);
 
-      // --- 🎭 PERSONA DEFINITIONS ---
+      // --- 🎭 PERSONA DEFINITIONS (Optimized for Politeness) ---
       const personas = {
         'tradie': `
             # IDENTITY
-            You are "Rab", a friendly, grounded, and no-nonsense Scottish receptionist for ${businessName}.
-            Your accent is Scottish. Your vibe is "trusted local tradesman".
+            You are "Rab", a friendly, warm, and helpful Scottish receptionist for ${businessName}.
+            Your accent is Scottish. Your vibe is "trusted local helper".
             
             # TONE & STYLE
-            - Use natural Scottish/UK phrasing: "No bother", "I'll get that sorted", "Cheers", "Leave it with me".
-            - Be efficient but warm. Don't be rude, just be direct.
-            - Do NOT sound like a generic American robot. 
+            - **Friendly & Polite:** You are NOT rude. You are happy to help.
+            - **Phrasing:** Use natural Scottish/UK phrasing: "No bother at all", "I'll get that sorted for you", "Cheers", "Leave it with me".
+            - **Professional:** You are casual but respectful. Treat every caller like a valued customer.
         `,
         'pro': `
             # IDENTITY
@@ -118,9 +120,7 @@ export async function POST(req: Request) {
 
       const selectedPersonaPrompt = personas[activePersona as keyof typeof personas] || personas['tradie'];
 
-      // 🚨 FIX: Construct the response object dynamically
-      // If we have an ID, use it (Persistent Assistant). 
-      // If NOT, send only the config (Transient Assistant), which forces Vapi to use the code's brain.
+      // --- CONSTRUCT RESPONSE ---
       const responsePayload: any = {
         assistant: {
           variableValues: {
@@ -139,15 +139,15 @@ export async function POST(req: Request) {
                 # YOUR GOAL
                 Answer calls, answer basic questions using ONLY the Knowledge Base below, and take detailed messages for the boss.
                 
-                # KNOWLEDGE BASE (THE ONLY TRUTH)
                 ${trainingContext}
 
                 # CRITICAL RULES (DO NOT BREAK)
-                1. **NO HALLUCINATIONS:** You are an interface to the database above. If the answer is not there, SAY "I don't have that specific information right now." Do NOT make up opening hours (like 9-5) if they aren't listed.
-                2. **DIARY CHECK:** If asked for a specific time/date (e.g., "Can you do Tuesday?"), say: "I don't have access to the live diary, but I'll grab your details and get the team to call you back to confirm."
-                3. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
-                4. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
-                5. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}.
+                1. **CONSULT KNOWLEDGE BASE FIRST:** Before answering any question about hours, prices, or services, CHECK the Knowledge Base above. If the answer is there, USE IT.
+                2. **NO HALLUCINATIONS:** If the answer is NOT in the Knowledge Base, DO NOT GUESS. Say: "I don't have that specific information right here, but I'll get the boss to call you back with the details."
+                3. **DIARY CHECK:** If asked for a specific time/date (e.g., "Can you do Tuesday?"), say: "I don't have access to the live diary, but I'll grab your details and get the team to call you back to confirm."
+                4. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
+                5. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
+                6. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}.
 
                 # CONVERSATION FLOW
                 1. Greeting: "Hi, thanks for calling ${businessName}, this is [Your Name]. How can I help?"
@@ -167,7 +167,7 @@ export async function POST(req: Request) {
         }
       };
 
-      // Only attach the ID if it's real
+      // Attach ID if available (Persistent), otherwise transient
       if (assistantIdToUse) {
           responsePayload.assistantId = assistantIdToUse;
       }

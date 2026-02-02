@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     const phoneId = record.vapi_phone_number_id;
     let currentAssistantId = record.vapi_assistant_id;
 
-    // --- CASE 1: UPDATE BUSINESS NAME ---
+    // --- CASE 1: UPDATE BUSINESS NAME (Updates existing assistant) ---
     if (action === 'update_name') {
       const newName = payload.name;
       await supabaseAdmin.from('profiles').update({ business_name: newName }).eq('id', userId);
@@ -36,33 +36,34 @@ export async function POST(req: Request) {
       const agentRes = await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
         headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
       });
-      const agent = await agentRes.json();
-
-      let systemMsg = agent.model.messages.find((m: any) => m.role === 'system')?.content || "";
-      systemMsg = systemMsg.replace(businessName, newName);
       
-      let firstMsg = agent.firstMessage || "";
-      firstMsg = firstMsg.replace(businessName, newName);
+      if (agentRes.ok) {
+        const agent = await agentRes.json();
+        let systemMsg = agent.model.messages.find((m: any) => m.role === 'system')?.content || "";
+        systemMsg = systemMsg.replace(businessName, newName);
+        
+        let firstMsg = agent.firstMessage || "";
+        firstMsg = firstMsg.replace(businessName, newName);
 
-      await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: `${agent.name.split('(')[0].trim()} (${newName})`.substring(0, 40),
-          firstMessage: firstMsg,
-          model: {
-            ...agent.model,
-            messages: [
-              { role: 'system', content: systemMsg },
-              ...agent.model.messages.filter((m: any) => m.role !== 'system')
-            ]
+        await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
+            'Content-Type': 'application/json',
           },
-          analysisPlan: { summaryPlan: { enabled: true } }
-        }),
-      });
+          body: JSON.stringify({
+            name: `${agent.name.split('(')[0].trim()} (${newName})`.substring(0, 40),
+            firstMessage: firstMsg,
+            model: {
+              ...agent.model,
+              messages: [
+                { role: 'system', content: systemMsg },
+                ...agent.model.messages.filter((m: any) => m.role !== 'system')
+              ]
+            }
+          }),
+        });
+      }
 
       return NextResponse.json({ success: true });
     }
@@ -79,17 +80,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ success: true });
     }
 
-    // --- CASE 3: SWITCH VOICE ---
+    // --- CASE 3: SWITCH VOICE (Creates NEW, Deletes OLD) ---
     if (action === 'switch_voice') {
       const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
       const targetBlueprintId = BLUEPRINTS[voiceId];
       if (!targetBlueprintId) throw new Error('Invalid Voice ID');
 
+      // A. Fetch Blueprint
       const bpRes = await fetch(`https://api.vapi.ai/assistant/${targetBlueprintId}`, {
         headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
       });
       const blueprint = await bpRes.json();
 
+      // B. Customize Blueprint
       let systemMessage = blueprint.model.messages.find((m: any) => m.role === 'system')?.content || "";
       systemMessage = systemMessage.replace(/{{business_name}}/g, businessName);
 
@@ -98,6 +101,7 @@ export async function POST(req: Request) {
 
       const safeName = `${blueprint.name} (${businessName})`.substring(0, 40);
 
+      // C. Create NEW Assistant
       const createRes = await fetch('https://api.vapi.ai/assistant', {
         method: 'POST',
         headers: {
@@ -123,6 +127,7 @@ export async function POST(req: Request) {
       if (!createRes.ok) throw new Error(await createRes.text());
       const newAssistant = await createRes.json();
 
+      // D. Link Number to NEW Assistant
       await fetch(`https://api.vapi.ai/phone-number/${phoneId}`, {
         method: 'PATCH',
         headers: {
@@ -132,11 +137,26 @@ export async function POST(req: Request) {
         body: JSON.stringify({ assistantId: newAssistant.id }),
       });
 
-      // SAVE THE ACTIVE VOICE ID TO DB SO THE WEBHOOK KNOWS WHICH PROMPT TO USE
+      // E. Update Database
       await supabaseAdmin.from('assistants').update({ 
           vapi_assistant_id: newAssistant.id,
           active_voice_id: voiceId 
       }).eq('id', record.id);
+
+      // F. DELETE OLD ASSISTANT (Cleanup)
+      // Only delete if it's different from the blueprint (to avoid deleting the master copy)
+      const isBlueprint = Object.values(BLUEPRINTS).includes(currentAssistantId);
+      if (currentAssistantId && !isBlueprint) {
+          try {
+              await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
+              });
+              console.log(`🗑️ Deleted old assistant: ${currentAssistantId}`);
+          } catch (delErr) {
+              console.error("Failed to delete old assistant:", delErr);
+          }
+      }
 
       return NextResponse.json({ success: true });
     }
