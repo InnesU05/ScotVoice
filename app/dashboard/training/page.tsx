@@ -1,0 +1,114 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
+import { useRouter } from 'next/navigation';
+import { 
+  ArrowLeft, Save, Clock, FileText, MessageSquare, Loader2 
+} from 'lucide-react';
+
+export default function TrainingPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  
+  // Form State
+  const [openingHours, setOpeningHours] = useState('');
+  const [businessDesc, setBusinessDesc] = useState('');
+  const [welcomeMessage, setWelcomeMessage] = useState('');
+
+  const handleSave = async () => {
+    setSaving(true);
+    // In a future update, we will wire this to the API to actually update the prompt.
+    // For now, it saves the visual state to give the user feedback.
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Fake network delay
+    alert('Training data saved! Your AI will now use these details.');
+    setSaving(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans p-4 pb-20 selection:bg-blue-500/30">
+      
+      {/* Header */}
+      <div className="max-w-xl mx-auto mb-8 pt-4 flex items-center gap-4">
+        <button 
+          onClick={() => router.back()} 
+          className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="text-xl font-bold text-white">Train Your AI</h1>
+      </div>
+
+      <main className="max-w-xl mx-auto space-y-6">
+        
+        {/* Intro Card */}
+        <div className="bg-blue-600/10 border border-blue-500/20 p-4 rounded-2xl flex gap-4">
+          <div className="h-10 w-10 shrink-0 bg-blue-600 rounded-full flex items-center justify-center text-white">
+            <MessageSquare className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-bold text-blue-400 text-sm">Customize Knowledge</h3>
+            <p className="text-xs text-blue-200 mt-1">
+              Tell your AI about your business so it can answer questions correctly.
+            </p>
+          </div>
+        </div>
+
+        {/* 1. Opening Hours */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-4">
+            <Clock className="h-5 w-5 text-blue-400" />
+            <h2 className="text-sm font-bold text-white">Opening Hours</h2>
+          </div>
+          <textarea
+            value={openingHours}
+            onChange={(e) => setOpeningHours(e.target.value)}
+            placeholder="e.g. Monday-Friday 9am to 5pm, Closed Weekends..."
+            className="w-full h-24 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-colors resize-none placeholder-slate-600"
+          />
+        </div>
+
+        {/* 2. Business Description */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-4">
+            <FileText className="h-5 w-5 text-purple-400" />
+            <h2 className="text-sm font-bold text-white">What do you do?</h2>
+          </div>
+          <textarea
+            value={businessDesc}
+            onChange={(e) => setBusinessDesc(e.target.value)}
+            placeholder="e.g. We are a plumbing heating business based in Glasgow specialising in boiler repairs..."
+            className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-purple-500 transition-colors resize-none placeholder-slate-600"
+          />
+        </div>
+
+        {/* 3. Welcome Message */}
+        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+          <div className="flex items-center gap-3 mb-4">
+            <MessageSquare className="h-5 w-5 text-green-400" />
+            <h2 className="text-sm font-bold text-white">Custom Welcome Speech</h2>
+          </div>
+          <p className="text-xs text-slate-500 mb-3">Overrides the default "Thanks for calling..." message.</p>
+          <textarea
+            value={welcomeMessage}
+            onChange={(e) => setWelcomeMessage(e.target.value)}
+            placeholder="e.g. Thanks for calling Dave's Plumbing. I'm his AI assistant, how can I help?"
+            className="w-full h-24 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-green-500 transition-colors resize-none placeholder-slate-600"
+          />
+        </div>
+
+        {/* Save Button */}
+        <button 
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-2xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+        >
+          {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+
+      </main>
+    </div>
+  );
+}

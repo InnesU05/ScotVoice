@@ -3,20 +3,20 @@
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
-  User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock
+  User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
+  ChevronDown, ChevronUp, BrainCircuit
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
-// This handles the interactive progress bar and seeking logic
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [duration, setDuration] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
 
-  // Format seconds into mm:ss
   const formatTime = (time: number) => {
     if (isNaN(time)) return "0:00";
     const minutes = Math.floor(time / 60);
@@ -31,7 +31,6 @@ function AudioPlayer({ src }: { src: string }) {
     if (isPlaying) {
       audio.pause();
     } else {
-      // Pause all other audios on the page (optional nice-to-have)
       document.querySelectorAll('audio').forEach((el) => {
         if (el !== audio) (el as HTMLAudioElement).pause();
       });
@@ -86,7 +85,6 @@ function AudioPlayer({ src }: { src: string }) {
         </button>
 
         <div className="flex-1 flex flex-col justify-center gap-1">
-          {/* Draggable Range Slider */}
           <input 
             type="range"
             min="0"
@@ -111,6 +109,10 @@ export default function Dashboard() {
   const [updating, setUpdating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  // Collapsible States (Default Closed to save space)
+  const [isPersonaOpen, setIsPersonaOpen] = useState(false);
+  const [isActivityOpen, setIsActivityOpen] = useState(false);
+
   // Data State
   const [user, setUser] = useState<any>(null);
   const [assistantData, setAssistantData] = useState<any>(null);
@@ -195,8 +197,7 @@ export default function Dashboard() {
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#0F172A]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          {/* 🚨 LOGO REPLACEMENT HERE */}
-          <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
+          <img src="/icon.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
           <span className="text-lg font-bold tracking-tight text-white">NessDial</span>
         </div>
         <button onClick={() => setIsSettingsOpen(true)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
@@ -204,7 +205,7 @@ export default function Dashboard() {
         </button>
       </header>
 
-      <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
+      <main className="mx-auto max-w-xl px-4 py-8 space-y-6">
         
         {/* 1. BUSINESS IDENTITY (Dark Card) */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-6 shadow-xl border border-slate-800">
@@ -255,110 +256,163 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 2. ASSISTANT SWITCHER */}
-        <div>
-          <h2 className="mb-4 text-sm font-semibold text-slate-400 px-1">Active Persona</h2>
-          <div className="grid grid-cols-1 gap-3">
-            {[
-              { id: 'tradie', icon: '🔨', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
-              { id: 'pro', icon: '💼', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
-              { id: 'coach', icon: '🔥', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
-            ].map((voice) => (
-              <button 
-                key={voice.id}
-                onClick={() => handleSwitchVoice(voice.id)}
-                className={`relative group flex items-center gap-4 p-4 rounded-2xl border text-left transition-all duration-200 ${
-                  selectedVoice === voice.id 
-                  ? 'bg-blue-600 border-blue-500 shadow-lg shadow-blue-900/20' 
-                  : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:bg-slate-800'
-                }`}
-              >
-                <div className="h-12 w-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">
-                  {voice.icon}
-                </div>
-                <div className="flex-1">
-                  <p className={`font-bold text-sm ${selectedVoice === voice.id ? 'text-white' : 'text-slate-200'}`}>
-                    {voice.name}
-                  </p>
-                  <p className={`text-xs ${selectedVoice === voice.id ? 'text-blue-100' : 'text-slate-500'}`}>
-                    {voice.desc}
-                  </p>
-                </div>
-                {selectedVoice === voice.id && (
-                  <div className="bg-white/20 p-1 rounded-full">
-                    <Check className="h-4 w-4 text-white" />
-                  </div>
-                )}
-              </button>
-            ))}
+        {/* 2. TRAIN AI BUTTON (New!) */}
+        <Link href="/dashboard/training">
+          <div className="group w-full p-4 rounded-3xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-between cursor-pointer border border-blue-500/50">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+                <BrainCircuit className="h-6 w-6" />
+              </div>
+              <div>
+                <h3 className="font-bold text-white text-lg">Train Your AI</h3>
+                <p className="text-blue-100 text-xs">Set opening hours & business info</p>
+              </div>
+            </div>
+            <div className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
+              <Settings className="h-5 w-5 text-white" />
+            </div>
           </div>
+        </Link>
+
+        {/* 3. COLLAPSIBLE: Active Persona */}
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
+          <button 
+            onClick={() => setIsPersonaOpen(!isPersonaOpen)}
+            className="w-full flex items-center justify-between p-6 hover:bg-slate-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xl">
+                {selectedVoice === 'tradie' ? '🔨' : selectedVoice === 'pro' ? '💼' : '🔥'}
+              </div>
+              <div className="text-left">
+                <h2 className="text-sm font-bold text-white">Active Persona</h2>
+                {!isPersonaOpen && (
+                  <p className="text-xs text-slate-500">
+                    Currently using <span className="text-blue-400">{selectedVoice === 'tradie' ? 'Rab' : selectedVoice === 'pro' ? 'Claire' : 'Calum'}</span>
+                  </p>
+                )}
+              </div>
+            </div>
+            {isPersonaOpen ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
+          </button>
+
+          {isPersonaOpen && (
+            <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
+              <div className="grid grid-cols-1 gap-3 mt-4">
+                {[
+                  { id: 'tradie', icon: '🔨', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
+                  { id: 'pro', icon: '💼', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
+                  { id: 'coach', icon: '🔥', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
+                ].map((voice) => (
+                  <button 
+                    key={voice.id}
+                    onClick={() => handleSwitchVoice(voice.id)}
+                    className={`relative group flex items-center gap-4 p-4 rounded-2xl border text-left transition-all duration-200 ${
+                      selectedVoice === voice.id 
+                      ? 'bg-slate-800 border-slate-600 shadow-lg' // Lighter active state
+                      : 'bg-slate-950 border-slate-800 hover:border-slate-700 hover:bg-slate-900' // Darker inactive
+                    }`}
+                  >
+                    <div className="h-12 w-12 rounded-xl bg-slate-800/50 flex items-center justify-center text-2xl">
+                      {voice.icon}
+                    </div>
+                    <div className="flex-1">
+                      <p className={`font-bold text-sm ${selectedVoice === voice.id ? 'text-white' : 'text-slate-300'}`}>
+                        {voice.name}
+                      </p>
+                      <p className={`text-xs ${selectedVoice === voice.id ? 'text-blue-200' : 'text-slate-500'}`}>
+                        {voice.desc}
+                      </p>
+                    </div>
+                    {selectedVoice === voice.id && (
+                      <div className="bg-green-500/20 p-1 rounded-full">
+                        <Check className="h-4 w-4 text-green-400" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* 3. CALL LOGS */}
-        <div>
-          <div className="flex items-center justify-between mb-4 px-1">
-            <h2 className="text-sm font-semibold text-slate-400">Recent Activity</h2>
-            <button onClick={() => window.location.reload()} className="text-xs text-blue-400 flex items-center gap-1 hover:text-blue-300 transition-colors">
-              <RefreshCw className="h-3 w-3" /> Refresh
-            </button>
-          </div>
-          
-          {calls.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 bg-slate-900 rounded-3xl border border-slate-800 border-dashed">
-               <div className="h-16 w-16 bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                 <Phone className="h-6 w-6 text-slate-600" />
-               </div>
-               <p className="text-slate-300 font-medium">No calls recorded yet</p>
-               <p className="text-xs text-slate-500 mt-1">Make a test call to see it here.</p>
+        {/* 4. COLLAPSIBLE: Call Logs */}
+        <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
+          <button 
+            onClick={() => setIsActivityOpen(!isActivityOpen)}
+            className="w-full flex items-center justify-between p-6 hover:bg-slate-800/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center">
+                <Phone className="h-4 w-4 text-slate-400" />
+              </div>
+              <div className="text-left">
+                <h2 className="text-sm font-bold text-white">Recent Activity</h2>
+                {!isActivityOpen && (
+                  <p className="text-xs text-slate-500">
+                    {calls.length > 0 ? `${calls.length} calls recorded` : 'No calls yet'}
+                  </p>
+                )}
+              </div>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {calls.map((call) => (
-                <div key={call.id} className="group bg-slate-900 p-5 rounded-3xl border border-slate-800 hover:border-slate-700 transition-all shadow-sm">
-                  
-                  {/* Top Row: Flex on Desktop, Column on Mobile to fix "Cramped" look */}
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
-                    
-                    {/* Caller Info */}
-                    <div className="flex items-center gap-4">
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner ${
-                        call.status === 'completed' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-800 text-slate-500'
-                      }`}>
-                        <User className="h-6 w-6" />
-                      </div>
-                      <div>
-                        <p className="text-base font-bold text-white tracking-tight">{call.customer_number}</p>
-                        <div className="flex items-center gap-3 text-xs text-slate-500 font-medium mt-0.5">
-                          <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {new Date(call.started_at).toLocaleDateString()}</span>
-                          <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {new Date(call.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+            <div className="flex items-center gap-3">
+              <span onClick={(e) => {e.stopPropagation(); window.location.reload()}} className="p-2 rounded-full hover:bg-slate-800 text-blue-400">
+                <RefreshCw className="h-4 w-4" />
+              </span>
+              {isActivityOpen ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
+            </div>
+          </button>
+          
+          {isActivityOpen && (
+            <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
+              {calls.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 rounded-2xl border border-slate-800 border-dashed bg-slate-950/50">
+                   <p className="text-slate-400 font-medium text-sm">No calls recorded yet</p>
+                   <p className="text-xs text-slate-600 mt-1">Make a test call to see it here.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {calls.map((call) => (
+                    <div key={call.id} className="group bg-slate-800 p-5 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all shadow-sm">
+                      {/* Note: I've updated this card background to slate-800 to pop against the slate-900 container */}
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-4">
+                          <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner ${
+                            call.status === 'completed' ? 'bg-blue-500/10 text-blue-400' : 'bg-slate-900 text-slate-500'
+                          }`}>
+                            <User className="h-6 w-6" />
+                          </div>
+                          <div>
+                            <p className="text-base font-bold text-white tracking-tight">{call.customer_number}</p>
+                            <div className="flex items-center gap-3 text-xs text-slate-400 font-medium mt-0.5">
+                              <span className="flex items-center gap-1.5"><Calendar className="h-3 w-3" /> {new Date(call.started_at).toLocaleDateString()}</span>
+                              <span className="flex items-center gap-1.5"><Clock className="h-3 w-3" /> {new Date(call.started_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="self-start">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
+                             call.status === 'completed' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
+                             'bg-red-500/10 text-red-400 border-red-500/20'
+                          }`}>
+                            {call.status}
+                          </span>
                         </div>
                       </div>
+
+                      <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/50">
+                        <p className="text-xs text-slate-300 leading-relaxed">
+                          {call.summary ? call.summary : <span className="italic opacity-50">No summary available.</span>}
+                        </p>
+                      </div>
+
+                      {call.recording_url && (
+                        <AudioPlayer src={call.recording_url} />
+                      )}
                     </div>
-
-                    {/* Status Badge (Moved to own line on very small screens, or right on bigger) */}
-                    <div className="self-start">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
-                         call.status === 'completed' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
-                         'bg-red-500/10 text-red-400 border-red-500/20'
-                      }`}>
-                        {call.status}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Summary Box */}
-                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800/50">
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      {call.summary ? call.summary : <span className="italic opacity-50">No summary available for this call.</span>}
-                    </p>
-                  </div>
-
-                  {/* Audio Player (New Interactive Component) */}
-                  {call.recording_url && (
-                    <AudioPlayer src={call.recording_url} />
-                  )}
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
