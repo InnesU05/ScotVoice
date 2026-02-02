@@ -50,7 +50,6 @@ const PERSONAS = {
 function constructSystemPrompt(activeVoiceId: string, profile: any) {
   const businessName = profile?.business_name || "The Business";
   
-  // Get the base personality
   let basePersona = PERSONAS[activeVoiceId as keyof typeof PERSONAS] || PERSONAS['tradie'];
   basePersona = basePersona.replace(/{{business_name}}/g, businessName);
 
@@ -106,12 +105,13 @@ export async function POST(req: Request) {
     const activeVoiceId = record.active_voice_id || 'tradie';
 
     // --- SHARED UPDATE LOGIC ---
-    // 🛠️ TYPE FIX: blueprint is typed as 'any' to allow spreading
     const updateVapiAssistant = async (assistantId: string | null, voiceId: string, isNew = false, blueprint: any = null) => {
       
       const newSystemPrompt = constructSystemPrompt(voiceId, profile);
+      const businessName = profile?.business_name || "The Business";
       
-      const apiPayload: any = {
+      // Base configuration
+      let payloadToVapi: any = {
         model: {
           provider: "openai",
           model: "gpt-4o",
@@ -122,23 +122,24 @@ export async function POST(req: Request) {
         }
       };
 
-      let finalBody = apiPayload;
-
-      // If creating new (Switch Voice), merge with blueprint BUT clean it first
+      // If Creating New: We must manually construct the payload from the blueprint
+      // We do NOT spread (...blueprint) because it contains 'id' and 'orgId' which causes Vapi errors.
       if (isNew && blueprint) {
-        let firstMsg = (blueprint as any).firstMessage || "";
-        firstMsg = firstMsg.replace(/{{business_name}}/g, profile?.business_name || "The Business");
         
-        apiPayload.name = `${(blueprint as any).name} (${profile?.business_name})`.substring(0, 40);
-        apiPayload.firstMessage = firstMsg;
-        apiPayload.voice = (blueprint as any).voice; 
-        apiPayload.transcriber = (blueprint as any).transcriber;
-        apiPayload.analysisPlan = { summaryPlan: { enabled: true } };
+        let firstMsg = (blueprint.firstMessage || "Hello.");
+        firstMsg = firstMsg.replace(/{{business_name}}/g, businessName);
 
-        // 🛡️ CRITICAL FIX: Remove System IDs from blueprint to prevent API Error
-        // We strip 'id', 'orgId', 'createdAt', 'updatedAt' so Vapi treats this as a FRESH request
-        const { id, orgId, createdAt, updatedAt, ...cleanBlueprint } = blueprint;
-        finalBody = { ...cleanBlueprint, ...apiPayload };
+        payloadToVapi = {
+            ...payloadToVapi, // Prompt & Model settings
+            name: `${blueprint.name} (${businessName})`.substring(0, 40),
+            firstMessage: firstMsg,
+            // We explicitly copy ONLY the hardware settings we want
+            voice: blueprint.voice,
+            transcriber: blueprint.transcriber,
+            analysisPlan: { summaryPlan: { enabled: true } },
+            // Ensure no system fields exist
+            serverUrl: process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/api/vapi-webhook` : undefined
+        };
       }
 
       const url = isNew 
@@ -147,42 +148,59 @@ export async function POST(req: Request) {
       
       const method = isNew ? 'POST' : 'PATCH';
 
+      console.log(`Sending to Vapi (${method}):`, JSON.stringify(payloadToVapi));
+
       const res = await fetch(url, {
         method: method,
         headers: {
           'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(finalBody),
+        body: JSON.stringify(payloadToVapi),
       });
 
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+          const errorText = await res.text();
+          console.error("Vapi Error:", errorText);
+          throw new Error(`Vapi Failed: ${errorText}`);
+      }
+      
       return await res.json();
     };
 
 
     // --- ACTION 1: UPDATE PROMPT ---
     if (action === 'update_prompt') {
-      await updateVapiAssistant(currentAssistantId, activeVoiceId);
-      return NextResponse.json({ success: true });
+      // If the current ID is dead (deleted manually), this will throw 404.
+      // We should catch it and tell the user to switch voice to fix it.
+      try {
+        await updateVapiAssistant(currentAssistantId, activeVoiceId);
+        return NextResponse.json({ success: true });
+      } catch (err: any) {
+        if (err.message.includes('404')) {
+            return NextResponse.json({ error: "Assistant not found. Please switch voices to reset." }, { status: 404 });
+        }
+        throw err;
+      }
     }
 
 
-    // --- ACTION 2: SWITCH VOICE ---
+    // --- ACTION 2: SWITCH VOICE (Self-Healing) ---
     if (action === 'switch_voice') {
       const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
       const targetBlueprintId = BLUEPRINTS[voiceId];
       
-      // Fetch Blueprint
+      // 1. Fetch Blueprint
       const bpRes = await fetch(`https://api.vapi.ai/assistant/${targetBlueprintId}`, {
         headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
       });
+      if (!bpRes.ok) throw new Error("Failed to fetch blueprint");
       const blueprint = await bpRes.json();
 
-      // Create New
+      // 2. Create New Assistant (Fresh ID)
       const newAssistant = await updateVapiAssistant(null, voiceId, true, blueprint);
 
-      // Link Number
+      // 3. Link Number to NEW Assistant
       await fetch(`https://api.vapi.ai/phone-number/${record.vapi_phone_number_id}`, {
         method: 'PATCH',
         headers: {
@@ -192,20 +210,23 @@ export async function POST(req: Request) {
         body: JSON.stringify({ assistantId: newAssistant.id }),
       });
 
-      // Update DB
+      // 4. Update DB
       await supabaseAdmin.from('assistants').update({ 
           vapi_assistant_id: newAssistant.id,
           active_voice_id: voiceId 
       }).eq('id', record.id);
 
-      // Cleanup Old
+      // 5. Cleanup Old (Swallow Errors)
+      // If the old one was manually deleted, this will fail (404). We ignore that.
       if (currentAssistantId && !Object.values(BLUEPRINTS).includes(currentAssistantId)) {
         try {
             await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
             });
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.log("Old assistant could not be deleted (likely already gone). Ignoring."); 
+        }
       }
 
       return NextResponse.json({ success: true });
@@ -214,6 +235,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
+    console.error("Update Agent Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
