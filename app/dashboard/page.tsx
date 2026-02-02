@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
-  ChevronDown, ChevronUp, BrainCircuit
+  ChevronDown, ChevronUp, BrainCircuit, ChevronRight
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -109,7 +109,7 @@ export default function Dashboard() {
   const [updating, setUpdating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
-  // Collapsible States (Default Closed to save space)
+  // Collapsible States
   const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
 
@@ -186,18 +186,21 @@ export default function Dashboard() {
   };
 
   if (loading) return (
-    <div className="flex h-screen w-full items-center justify-center bg-[#0F172A]">
+    // Updated background to match main theme
+    <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
+    // 🎨 UPDATED BACKGROUND: Darker (#020617) to make cards pop
+    <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
       
       {/* --- HEADER --- */}
-      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#0F172A]/80 px-6 backdrop-blur-md">
+      <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#020617]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          <img src="/icon.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
+          {/* 🚨 LOGO FIXED: Points to /logo.png */}
+          <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
           <span className="text-lg font-bold tracking-tight text-white">NessDial</span>
         </div>
         <button onClick={() => setIsSettingsOpen(true)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition-all">
@@ -205,9 +208,9 @@ export default function Dashboard() {
         </button>
       </header>
 
-      <main className="mx-auto max-w-xl px-4 py-8 space-y-6">
+      <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
         
-        {/* 1. BUSINESS IDENTITY (Dark Card) */}
+        {/* 1. BUSINESS IDENTITY */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-6 shadow-xl border border-slate-800">
           <div className="absolute top-0 right-0 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
           
@@ -256,8 +259,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 2. TRAIN AI BUTTON (New!) */}
-        <Link href="/dashboard/training">
+        {/* 2. TRAIN AI BUTTON */}
+        {/* Added explicit spacing (mb-4) and replaced cog with ChevronRight */}
+        <Link href="/dashboard/training" className="block">
           <div className="group w-full p-4 rounded-3xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-between cursor-pointer border border-blue-500/50">
             <div className="flex items-center gap-4">
               <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
@@ -269,7 +273,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="bg-white/20 p-2 rounded-full group-hover:bg-white/30 transition-colors">
-              <Settings className="h-5 w-5 text-white" />
+              <ChevronRight className="h-5 w-5 text-white" />
             </div>
           </div>
         </Link>
@@ -309,8 +313,8 @@ export default function Dashboard() {
                     onClick={() => handleSwitchVoice(voice.id)}
                     className={`relative group flex items-center gap-4 p-4 rounded-2xl border text-left transition-all duration-200 ${
                       selectedVoice === voice.id 
-                      ? 'bg-slate-800 border-slate-600 shadow-lg' // Lighter active state
-                      : 'bg-slate-950 border-slate-800 hover:border-slate-700 hover:bg-slate-900' // Darker inactive
+                      ? 'bg-slate-800 border-slate-600 shadow-lg' 
+                      : 'bg-slate-950 border-slate-800 hover:border-slate-700 hover:bg-slate-900'
                     }`}
                   >
                     <div className="h-12 w-12 rounded-xl bg-slate-800/50 flex items-center justify-center text-2xl">
@@ -374,7 +378,6 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   {calls.map((call) => (
                     <div key={call.id} className="group bg-slate-800 p-5 rounded-3xl border border-slate-700 hover:border-slate-600 transition-all shadow-sm">
-                      {/* Note: I've updated this card background to slate-800 to pop against the slate-900 container */}
                       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
                         <div className="flex items-center gap-4">
                           <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shadow-inner ${
