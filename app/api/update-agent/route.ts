@@ -50,7 +50,6 @@ const PERSONAS = {
 function constructSystemPrompt(activeVoiceId: string, profile: any) {
   const businessName = profile?.business_name || "The Business";
   
-  // Get the base personality
   let basePersona = PERSONAS[activeVoiceId as keyof typeof PERSONAS] || PERSONAS['tradie'];
   basePersona = basePersona.replace(/{{business_name}}/g, businessName);
 
@@ -106,16 +105,15 @@ export async function POST(req: Request) {
     const activeVoiceId = record.active_voice_id || 'tradie';
 
     // --- SHARED UPDATE LOGIC ---
-    // 🛠️ FIX: Added specific types to arguments to prevent Spread Error
+    // 🛠️ TYPE FIX: blueprint is typed as 'any' to allow spreading
     const updateVapiAssistant = async (assistantId: string | null, voiceId: string, isNew = false, blueprint: any = null) => {
       
       const newSystemPrompt = constructSystemPrompt(voiceId, profile);
       
-      const payload: any = {
+      const apiPayload: any = {
         model: {
           provider: "openai",
           model: "gpt-4o",
-          // 🚀 INCREASED TEMPERATURE: 0.4 makes them sound more natural/human
           temperature: 0.4, 
           messages: [
             { role: 'system', content: newSystemPrompt }
@@ -123,16 +121,22 @@ export async function POST(req: Request) {
         }
       };
 
-      // If creating new (Switch Voice), we need extra fields
+      let finalBody = apiPayload;
+
+      // If creating new (Switch Voice), merge with blueprint BUT clean it first
       if (isNew && blueprint) {
         let firstMsg = (blueprint as any).firstMessage || "";
         firstMsg = firstMsg.replace(/{{business_name}}/g, profile?.business_name || "The Business");
         
-        payload.name = `${(blueprint as any).name} (${profile?.business_name})`.substring(0, 40);
-        payload.firstMessage = firstMsg;
-        payload.voice = (blueprint as any).voice; // Keep the high-quality voice settings
-        payload.transcriber = (blueprint as any).transcriber;
-        payload.analysisPlan = { summaryPlan: { enabled: true } };
+        apiPayload.name = `${(blueprint as any).name} (${profile?.business_name})`.substring(0, 40);
+        apiPayload.firstMessage = firstMsg;
+        apiPayload.voice = (blueprint as any).voice; 
+        apiPayload.transcriber = (blueprint as any).transcriber;
+        apiPayload.analysisPlan = { summaryPlan: { enabled: true } };
+
+        // 🛡️ CRITICAL FIX: Remove System IDs from blueprint to prevent API Error
+        const { id, orgId, createdAt, updatedAt, ...cleanBlueprint } = blueprint;
+        finalBody = { ...cleanBlueprint, ...apiPayload };
       }
 
       const url = isNew 
@@ -147,8 +151,7 @@ export async function POST(req: Request) {
           'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
           'Content-Type': 'application/json',
         },
-        // 🛠️ FIX: 'blueprint' is now typed as 'any', so typescript allows the spread
-        body: JSON.stringify(isNew ? { ...blueprint, ...payload } : payload),
+        body: JSON.stringify(finalBody),
       });
 
       if (!res.ok) throw new Error(await res.text());
@@ -156,14 +159,14 @@ export async function POST(req: Request) {
     };
 
 
-    // --- ACTION 1: UPDATE PROMPT (User saved training data) ---
+    // --- ACTION 1: UPDATE PROMPT ---
     if (action === 'update_prompt') {
       await updateVapiAssistant(currentAssistantId, activeVoiceId);
       return NextResponse.json({ success: true });
     }
 
 
-    // --- ACTION 2: SWITCH VOICE (New Agent) ---
+    // --- ACTION 2: SWITCH VOICE ---
     if (action === 'switch_voice') {
       const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
       const targetBlueprintId = BLUEPRINTS[voiceId];
