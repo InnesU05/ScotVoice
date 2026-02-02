@@ -14,7 +14,7 @@ export async function POST(req: Request) {
     console.log(`📣 Vapi Event: ${message.type}`);
 
     // ==========================================
-    // 1. INCOMING CALL (Injecting the "Perfect" Brain)
+    // 1. INCOMING CALL (Injecting the "Knowledge-First" Brain)
     // ==========================================
     if (message.type === 'assistant-request') {
       
@@ -42,9 +42,10 @@ export async function POST(req: Request) {
 
       let businessName = "Valued Customer";
       let assistantIdToUse: string | null = null; 
-      
-      let trainingContext = "No specific business details provided. Take a message.";
       let activePersona = 'tradie'; 
+      
+      // Default Context (Empty)
+      let trainingContext = "No specific business details provided. Please take a detailed message.";
 
       if (!error && assistantRecord) {
         const profile = assistantRecord.profiles as any;
@@ -60,21 +61,28 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Monthly usage limit reached." }, { status: 403 });
         }
 
-        // --- 🧠 CONSTRUCT KNOWLEDGE BASE ---
+        // --- 🧠 CONSTRUCT KNOWLEDGE BASE (Aggressive Injection) ---
+        // We structure this as a clear "Fact Sheet" for the AI
         if (profile) {
-            // We build this string to be extremely clear for the AI
             trainingContext = `
-            == BUSINESS KNOWLEDGE BASE (USE THIS DATA) ==
-            BUSINESS NAME: ${businessName}
+            === 🟢 APPROVED BUSINESS KNOWLEDGE BASE 🟢 ===
+            (You MUST use this information to answer customer questions)
+
+            📍 BUSINESS NAME: ${businessName}
             
-            ${profile.business_description ? `[WHAT WE DO]:\n${profile.business_description}` : ''}
+            📝 WHAT WE DO:
+            ${profile.business_description || "General inquiries."}
             
-            ${profile.opening_hours ? `[OPENING HOURS]:\n${profile.opening_hours}` : '[OPENING HOURS]: Not specified. Do NOT guess.'}
+            🕒 OPENING HOURS:
+            ${profile.opening_hours || "Not specified. (If asked, say: 'I don't have the specific hours in front of me, but I can get the boss to confirm.')"}
             
-            ${profile.services ? `[SERVICES & PRICING]:\n${profile.services}` : ''}
+            💰 SERVICES & PRICING:
+            ${profile.services || "Pricing is available on request."}
             
-            ${profile.faqs ? `[SPECIFIC Q&A / FAQs]:\n${profile.faqs}` : ''}
-            ==============================================
+            ❓ FREQUENTLY ASKED QUESTIONS (Q&A):
+            ${profile.faqs || "No specific FAQs provided."}
+            
+            === 🔴 END OF KNOWLEDGE BASE 🔴 ===
             `;
         }
 
@@ -84,8 +92,9 @@ export async function POST(req: Request) {
       } 
       
       console.log(`✅ Injecting Name: ${businessName} | Persona: ${activePersona}`);
+      console.log(`🧠 Context Length: ${trainingContext.length} chars`);
 
-      // --- 🎭 PERSONA DEFINITIONS (Optimized for Politeness) ---
+      // --- 🎭 PERSONA DEFINITIONS ---
       const personas = {
         'tradie': `
             # IDENTITY
@@ -93,9 +102,9 @@ export async function POST(req: Request) {
             Your accent is Scottish. Your vibe is "trusted local helper".
             
             # TONE & STYLE
-            - **Friendly & Polite:** You are NOT rude. You are happy to help.
+            - **Friendly & Polite:** You are happy to help. Never rude.
             - **Phrasing:** Use natural Scottish/UK phrasing: "No bother at all", "I'll get that sorted for you", "Cheers", "Leave it with me".
-            - **Professional:** You are casual but respectful. Treat every caller like a valued customer.
+            - **Professional:** Casual but respectful.
         `,
         'pro': `
             # IDENTITY
@@ -105,7 +114,6 @@ export async function POST(req: Request) {
             # TONE & STYLE
             - Use formal, polite phrasing: "Certainly", "One moment please", "I would be happy to help with that".
             - Be calm, reassuring, and precise.
-            - Never use slang.
         `,
         'coach': `
             # IDENTITY
@@ -114,7 +122,7 @@ export async function POST(req: Request) {
             
             # TONE & STYLE
             - Use upbeat, high-energy phrasing: "Brilliant", "Let's get this sorted", "No worries at all", "100%".
-            - Be enthusiastic but efficient. Keep the momentum going.
+            - Be enthusiastic but efficient.
         `
       };
 
@@ -129,31 +137,36 @@ export async function POST(req: Request) {
           model: {
             provider: "openai",
             model: "gpt-4o",
-            temperature: 0.2, 
+            // Increased slightly to 0.4 to allow him to "read" the notes more naturally, 
+            // but the instructions below are strict about facts.
+            temperature: 0.4, 
             messages: [
               {
                 role: "system",
                 content: `
                 ${selectedPersonaPrompt}
                 
-                # YOUR GOAL
-                Answer calls, answer basic questions using ONLY the Knowledge Base below, and take detailed messages for the boss.
+                # YOUR MAIN GOAL
+                You are the front desk receptionist. Your job is to answer customer questions using the KNOWLEDGE BASE below, and take messages if you cannot help.
                 
                 ${trainingContext}
 
-                # CRITICAL RULES (DO NOT BREAK)
-                1. **CONSULT KNOWLEDGE BASE FIRST:** Before answering any question about hours, prices, or services, CHECK the Knowledge Base above. If the answer is there, USE IT.
-                2. **NO HALLUCINATIONS:** If the answer is NOT in the Knowledge Base, DO NOT GUESS. Say: "I don't have that specific information right here, but I'll get the boss to call you back with the details."
-                3. **DIARY CHECK:** If asked for a specific time/date (e.g., "Can you do Tuesday?"), say: "I don't have access to the live diary, but I'll grab your details and get the team to call you back to confirm."
-                4. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
-                5. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
-                6. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}.
+                # 🟢 INSTRUCTIONS (HOW TO USE THE DATA)
+                1. **CHECK THE DATA FIRST:** If a customer asks "How much is X?" or "Are you open?", LOOK at the Knowledge Base above. 
+                2. **ANSWER CONFIDENTLY:** If the answer is in the Knowledge Base, GIVE IT. You are authorized to quote prices and hours listed there. Do NOT say "I'll ask the boss" if the price is written right there.
+                3. **BE HELPFUL:** If the user asks something vaguely related to the services listed, try to help based on the description.
+
+                # 🔴 RESTRICTIONS (WHEN TO STOP)
+                1. **MISSING INFO:** If the answer is *NOT* in the Knowledge Base, THEN say: "I don't have that specific detail to hand, but I'll get the boss to call you back with an answer."
+                2. **LIVE DIARY:** If asked for a specific appointment slot (e.g. "Is 2pm free?"), say: "I don't have access to the live calendar, but I'll take your request and the team will confirm it shortly."
+                3. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
+                4. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
 
                 # CONVERSATION FLOW
                 1. Greeting: "Hi, thanks for calling ${businessName}, this is [Your Name]. How can I help?"
-                2. Filter: If SPAM/SALES -> "Not interested, thanks" -> Hang up.
-                3. Lead: Get Name, Phone, and Job Details.
-                4. Closing: "Thanks [Name], I've sent that info to the boss. Expect a call back shortly. [Sign off phrase based on persona]!"
+                2. Listen & Solve: If they have a question, answer it using the Knowledge Base.
+                3. Take Details: If they want to book or need a callback, get their Name and Phone Number.
+                4. Closing: "Thanks [Name], I've passed that on. Expect a call back shortly. [Sign off]!"
                 `
               }
             ]
