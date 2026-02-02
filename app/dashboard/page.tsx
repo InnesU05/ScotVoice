@@ -4,13 +4,12 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-// FIX: Added 'Check' and 'LogOut' to the import list
 import { 
   Settings, Phone, Edit2, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
   HelpCircle, AlertCircle, Mail, Star, Download, Trash2, Zap, 
-  PhoneForwarded, Check, LogOut 
+  PhoneForwarded, Check, LogOut, BookOpen
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT (Unchanged) ---
@@ -410,7 +409,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xl">
-                {selectedVoice === 'tradie' ? '畑' : selectedVoice === 'pro' ? '直' : '櫨'}
+                {selectedVoice === 'tradie' ? '🔨' : selectedVoice === 'pro' ? '👔' : '⚡'}
               </div>
               <div className="text-left">
                 <h2 className="text-sm font-bold text-white">Active Persona</h2>
@@ -428,9 +427,9 @@ export default function Dashboard() {
             <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-1 gap-3 mt-4">
                 {[
-                  { id: 'tradie', icon: '畑', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
-                  { id: 'pro', icon: '直', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
-                  { id: 'coach', icon: '櫨', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
+                  { id: 'tradie', icon: '🔨', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
+                  { id: 'pro', icon: '👔', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
+                  { id: 'coach', icon: '⚡', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
                 ].map((voice) => (
                   <button 
                     key={voice.id}
@@ -589,9 +588,9 @@ export default function Dashboard() {
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
               
-              {/* UPDATED LINK */}
+              {/* UPDATED LINK & ICON */}
               <Link href="/dashboard/setup-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <PhoneForwarded className="h-5 w-5 text-green-400" />
+                <BookOpen className="h-5 w-5 text-green-400" />
                 <div><p className="text-sm font-medium text-white">Setup Guide</p><p className="text-xs text-slate-500">How to connect</p></div>
               </Link>
 
@@ -602,6 +601,12 @@ export default function Dashboard() {
               <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Download className="h-5 w-5 text-blue-400" />
                 <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
+              </Link>
+              
+              {/* RESTORED LINK */}
+              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Star className="h-5 w-5 text-yellow-500" />
+                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
               </Link>
             </div>
 
