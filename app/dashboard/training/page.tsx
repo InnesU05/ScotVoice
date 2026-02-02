@@ -15,19 +15,17 @@ export default function TrainingPage() {
   // Form State
   const [openingHours, setOpeningHours] = useState('');
   const [businessDesc, setBusinessDesc] = useState('');
-  const [welcomeMessage, setWelcomeMessage] = useState('');
 
   const handleSave = async () => {
     setSaving(true);
     // In a future update, we will wire this to the API to actually update the prompt.
-    // For now, it saves the visual state to give the user feedback.
     await new Promise(resolve => setTimeout(resolve, 1000)); // Fake network delay
     alert('Training data saved! Your AI will now use these details.');
     setSaving(false);
   };
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans p-4 pb-20 selection:bg-blue-500/30">
+    <div className="min-h-screen bg-[#020617] text-slate-200 font-sans p-4 pb-20 selection:bg-blue-500/30">
       
       {/* Header */}
       <div className="max-w-xl mx-auto mb-8 pt-4 flex items-center gap-4">
@@ -80,21 +78,6 @@ export default function TrainingPage() {
             onChange={(e) => setBusinessDesc(e.target.value)}
             placeholder="e.g. We are a plumbing heating business based in Glasgow specialising in boiler repairs..."
             className="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-purple-500 transition-colors resize-none placeholder-slate-600"
-          />
-        </div>
-
-        {/* 3. Welcome Message */}
-        <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-          <div className="flex items-center gap-3 mb-4">
-            <MessageSquare className="h-5 w-5 text-green-400" />
-            <h2 className="text-sm font-bold text-white">Custom Welcome Speech</h2>
-          </div>
-          <p className="text-xs text-slate-500 mb-3">Overrides the default "Thanks for calling..." message.</p>
-          <textarea
-            value={welcomeMessage}
-            onChange={(e) => setWelcomeMessage(e.target.value)}
-            placeholder="e.g. Thanks for calling Dave's Plumbing. I'm his AI assistant, how can I help?"
-            className="w-full h-24 bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-200 focus:outline-none focus:border-green-500 transition-colors resize-none placeholder-slate-600"
           />
         </div>
 

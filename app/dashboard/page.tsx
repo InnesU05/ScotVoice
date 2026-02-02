@@ -8,7 +8,7 @@ import {
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy, AlertCircle, Mail, Star, Download
+  HelpCircle, Copy, AlertCircle, Mail, Star, Download, Trash2
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -201,6 +201,22 @@ export default function Dashboard() {
       alert(`Assistant switched to ${voiceId.toUpperCase()}!`);
     } catch (err) { alert('Failed to switch assistant'); }
     setUpdating(false);
+  };
+
+  const handleDeleteCall = async (callId: string) => {
+    if (!confirm('Are you sure you want to delete this call log? This cannot be undone.')) return;
+    
+    // 1. Optimistic UI update (remove immediately)
+    setCalls(calls.filter(c => c.id !== callId));
+
+    // 2. Database delete
+    try {
+      const { error } = await supabase.from('calls').delete().eq('id', callId);
+      if (error) throw error;
+    } catch (err) {
+      alert('Failed to delete call from database');
+      window.location.reload(); // Revert UI if failed
+    }
   };
 
   const handleSignOut = async () => {
@@ -468,13 +484,22 @@ export default function Dashboard() {
                             </div>
                           </div>
                         </div>
-                        <div className="self-start">
+                        <div className="self-start flex items-center gap-2">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border ${
                              call.status === 'completed' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 
                              'bg-red-500/10 text-red-400 border-red-500/20'
                           }`}>
                             {call.status}
                           </span>
+                          
+                          {/* DELETE BUTTON (GDPR) */}
+                          <button 
+                            onClick={() => handleDeleteCall(call.id)}
+                            className="p-1.5 rounded-lg bg-slate-700/50 hover:bg-red-500/20 hover:text-red-400 text-slate-500 transition-colors"
+                            title="Delete Call Log"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
                         </div>
                       </div>
 
