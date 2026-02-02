@@ -8,7 +8,7 @@ import {
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy // Added these icons
+  HelpCircle, Copy, AlertCircle
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -210,10 +210,8 @@ export default function Dashboard() {
     }
   };
 
-  // Helper for cleaning number for the GSM code
   const getCleanNumber = () => {
     const raw = assistantData?.twilio_phone_number || "";
-    // Remove spaces, dashes, parentheses
     return raw.replace(/[^0-9+]/g, '');
   };
 
@@ -226,7 +224,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
       
-      {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#020617]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
@@ -275,10 +272,10 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* AI NUMBER BOX (UPDATED WITH CONNECT BUTTON) */}
-            <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
+            {/* AI NUMBER BOX - MOBILE OPTIMIZED (Stacked) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
               <div className="flex items-center gap-4">
-                <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
+                <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 shrink-0">
                   <Phone className="h-5 w-5" />
                 </div>
                 <div>
@@ -290,17 +287,17 @@ export default function Dashboard() {
               </div>
               <button 
                 onClick={() => setIsSetupOpen(true)}
-                className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-xs font-bold rounded-xl transition-colors border border-blue-600/30 shadow-sm"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20"
               >
                 <HelpCircle className="h-3.5 w-3.5" />
-                Connect
+                Setup Forwarding
               </button>
             </div>
 
-            {/* USER PHONE BOX */}
-            <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+            {/* USER PHONE BOX - MOBILE OPTIMIZED */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <div className="flex items-center gap-4 w-full">
-                <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400">
+                <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 shrink-0">
                   <Smartphone className="h-5 w-5" />
                 </div>
                 <div className="w-full">
@@ -322,12 +319,12 @@ export default function Dashboard() {
                 </div>
               </div>
               {isEditingPhone ? (
-                 <div className="flex flex-col gap-2">
-                   <button onClick={handleUpdatePhone} disabled={updating} className="text-xs text-purple-400 font-bold">Save</button>
-                   <button onClick={() => setIsEditingPhone(false)} className="text-xs text-slate-500">Cancel</button>
+                 <div className="flex gap-2 self-end sm:self-center">
+                   <button onClick={() => setIsEditingPhone(false)} className="text-xs text-slate-500 font-medium px-2 py-1">Cancel</button>
+                   <button onClick={handleUpdatePhone} disabled={updating} className="text-xs text-purple-400 font-bold bg-purple-500/10 px-3 py-1 rounded-lg border border-purple-500/20">Save</button>
                  </div>
               ) : (
-                 <button onClick={() => setIsEditingPhone(true)} className="p-2 text-slate-500 hover:text-purple-400 transition-colors">
+                 <button onClick={() => setIsEditingPhone(true)} className="self-end sm:self-center p-2 text-slate-500 hover:text-purple-400 transition-colors">
                    <Edit2 className="h-4 w-4" />
                  </button>
               )}
@@ -337,10 +334,10 @@ export default function Dashboard() {
         </div>
 
         {/* 2. TRAIN AI BUTTON */}
-        <Link href="/dashboard/training" className="block">
+        <Link href="/dashboard/training" className="block mb-8">
           <div className="group w-full p-4 rounded-3xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-between cursor-pointer border border-blue-500/50">
             <div className="flex items-center gap-4">
-              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white">
+              <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-white shrink-0">
                 <BrainCircuit className="h-6 w-6" />
               </div>
               <div>
@@ -497,21 +494,24 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- SETUP GUIDE MODAL --- */}
+      {/* --- FULL SETUP WIZARD --- */}
       {isSetupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
                 
-                {/* Modal Header */}
+                {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
-                    <h2 className="text-xl font-bold text-white">Connect Calls</h2>
+                    <div>
+                        <h2 className="text-xl font-bold text-white">Setup Voicemail</h2>
+                        <p className="text-xs text-slate-400 mt-1">Route unanswered calls to NessDial</p>
+                    </div>
                     <button onClick={() => setIsSetupOpen(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
                         <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* Device Tabs */}
-                <div className="flex border-b border-slate-800">
+                <div className="flex border-b border-slate-800 shrink-0">
                     <button 
                         onClick={() => setDeviceType('iphone')}
                         className={`flex-1 py-4 text-sm font-bold text-center transition-colors ${deviceType === 'iphone' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
@@ -526,73 +526,104 @@ export default function Dashboard() {
                     </button>
                 </div>
 
-                {/* Content */}
-                <div className="p-6 space-y-6">
+                {/* Scrollable Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-8">
                     
-                    <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/20">
-                        <p className="text-sm text-blue-200 leading-relaxed">
-                            To let the AI answer when you're busy, you need to enable <strong>Conditional Call Forwarding</strong>.
+                    {/* Step 1: The Code (Primary) */}
+                    <section>
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">Method 1 (Easiest)</span>
+                            <h3 className="font-bold text-white">Dial the Code</h3>
+                        </div>
+                        <p className="text-sm text-slate-400 mb-4 leading-relaxed">
+                            This creates a rule: "If I don't answer in 20 seconds, send the call to NessDial."
                         </p>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="flex items-start gap-4">
-                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">1</div>
-                            <div>
-                                <p className="text-slate-300 text-sm font-medium mb-1">Open your Phone Keypad</p>
-                                <p className="text-slate-500 text-xs">The app where you normally dial numbers.</p>
+                        
+                        <div className="bg-black/30 p-4 rounded-xl border border-slate-700 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">1</div>
+                                <p className="text-sm text-slate-300">Open your <strong>Phone / Keypad</strong> app.</p>
                             </div>
-                        </div>
-
-                        <div className="flex items-start gap-4">
-                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">2</div>
-                            <div className="w-full">
-                                <p className="text-slate-300 text-sm font-medium mb-2">Dial this exact code:</p>
-                                <div className="flex items-center gap-2 bg-black/50 p-3 rounded-xl border border-slate-700 font-mono text-lg text-green-400 tracking-wider shadow-inner">
-                                    <span className="flex-1 truncate">
-                                        **61*{getCleanNumber()}*11*20#
-                                    </span>
-                                    <button 
-                                        onClick={() => {
-                                            navigator.clipboard.writeText(`**61*${getCleanNumber()}*11*20#`);
-                                            alert("Code copied to clipboard!");
-                                        }}
-                                        className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
-                                    >
-                                        <Copy className="h-4 w-4" />
-                                    </button>
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">2</div>
+                                <div className="flex-1">
+                                    <p className="text-sm text-slate-300 mb-2">Type this exact code and press <strong>Call</strong>:</p>
+                                    <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-lg text-green-400 tracking-wider shadow-inner">
+                                        <span className="flex-1 truncate">
+                                            **61*{getCleanNumber()}*11*20#
+                                        </span>
+                                        <button 
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(`**61*${getCleanNumber()}*11*20#`);
+                                                alert("Code copied!");
+                                            }}
+                                            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                                        >
+                                            <Copy className="h-4 w-4" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <p className="text-xs text-slate-500 mt-2">
-                                    This sets a <strong>20 second</strong> ring delay before forwarding.
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">3</div>
+                                <p className="text-sm text-slate-300">
+                                    Wait for a "Registration Succeeded" message.
                                 </p>
                             </div>
                         </div>
+                    </section>
 
-                        <div className="flex items-start gap-4">
-                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">3</div>
-                            <div>
-                                <p className="text-slate-300 text-sm font-medium mb-1">Press the Call Button</p>
-                                <p className="text-slate-500 text-xs leading-relaxed">
-                                    {deviceType === 'iphone' 
-                                        ? "A grey screen will flash saying 'Setting Registration Succeeded'. Click Dismiss." 
-                                        : "You will see a pop-up confirmation saying 'Call forwarding registered successfully'."}
-                                </p>
-                            </div>
+                    {/* Step 2: Manual Method (Fallback) */}
+                    <section className="border-t border-slate-800 pt-6">
+                        <div className="flex items-center gap-2 mb-3">
+                            <span className="bg-slate-700 text-slate-200 text-xs font-bold px-2 py-0.5 rounded">Method 2 (Manual)</span>
+                            <h3 className="font-bold text-white">Phone Settings</h3>
                         </div>
-                    </div>
+                        
+                        {deviceType === 'iphone' ? (
+                            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-300 space-y-2">
+                                <p className="flex gap-2"><AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" /> <strong>Note:</strong> Most UK carriers hide this menu on iPhone. Use Method 1 if possible.</p>
+                                <ol className="list-decimal pl-5 space-y-1 text-slate-400">
+                                    <li>Go to <strong>Settings</strong> {'>'} <strong>Phone</strong>.</li>
+                                    <li>Tap <strong>Call Forwarding</strong> (if available).</li>
+                                    <li>If you only see a simple "On/Off" switch, your carrier forces "All Calls" forwarding here. You MUST use Method 1 (the code) for voicemail replacement.</li>
+                                </ol>
+                            </div>
+                        ) : (
+                            <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-400 space-y-2">
+                                <ol className="list-decimal pl-5 space-y-2">
+                                    <li>Open the <strong>Phone App</strong>.</li>
+                                    <li>Tap the <strong>3 dots (Menu)</strong> {'>'} <strong>Settings</strong>.</li>
+                                    <li>Tap <strong>Calling Accounts</strong> (or Supplementary Services).</li>
+                                    <li>Tap <strong>Call Forwarding</strong> {'>'} <strong>Voice</strong>.</li>
+                                    <li>Tap <strong>"When unanswered"</strong>.</li>
+                                    <li>Enter your NessDial Number: <span className="text-white font-mono select-all">{getCleanNumber()}</span></li>
+                                    <li>Tap <strong>Turn On</strong>.</li>
+                                </ol>
+                            </div>
+                        )}
+                    </section>
 
-                    <button 
-                        onClick={() => setIsSetupOpen(false)}
-                        className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors border border-slate-700"
-                    >
-                        Done
-                    </button>
+                    {/* Step 3: Test */}
+                    <section className="bg-green-900/10 p-4 rounded-xl border border-green-500/20 text-center">
+                        <h3 className="font-bold text-green-400 mb-2">Final Step: Test It!</h3>
+                        <p className="text-sm text-green-200/70 mb-4">
+                            Call your mobile from a different phone. <strong>Don't answer.</strong> After 20 seconds, does NessDial pick up?
+                        </p>
+                        <button 
+                            onClick={() => setIsSetupOpen(false)}
+                            className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-colors shadow-lg"
+                        >
+                            I'm All Set up
+                        </button>
+                    </section>
+
                 </div>
             </div>
         </div>
       )}
 
-      {/* --- SETTINGS SLIDE-OUT (Dark Mode) --- */}
+      {/* ... Settings Slide-out (Unchanged) ... */}
       <div 
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSettingsOpen(false)}
