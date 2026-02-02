@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import twilio from 'twilio';
+
+// Initialize Twilio Client for sending SMS
+const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +15,7 @@ export async function POST(req: Request) {
     console.log(`📣 Vapi Event: ${message.type}`);
 
     // ==========================================
-    // 1. INCOMING CALL (Inject Training Data)
+    // 1. INCOMING CALL (Inject Training & Instructions)
     // ==========================================
     if (message.type === 'assistant-request') {
       
@@ -54,7 +58,6 @@ export async function POST(req: Request) {
         }
 
         // --- 🧠 CONSTRUCT TRAINING CONTEXT ---
-        // We build a text block to feed into the AI's system prompt
         if (profile) {
             if (profile.business_description) trainingContext += `\nABOUT US: ${profile.business_description}`;
             if (profile.opening_hours) trainingContext += `\nOPENING HOURS: ${profile.opening_hours}`;
@@ -68,7 +71,6 @@ export async function POST(req: Request) {
       } 
       
       console.log(`✅ Injecting Name: ${businessName}`);
-      console.log(`🧠 Injecting Context Length: ${trainingContext.length} chars`);
 
       return NextResponse.json({
         assistantId: assistantIdToUse,
@@ -76,13 +78,16 @@ export async function POST(req: Request) {
           variableValues: {
             business_name: businessName,
           },
-          // 💉 INJECT TRAINING DATA INTO SYSTEM PROMPT
+          // 💉 INJECT TRAINING DATA + RECORDING INSTRUCTION
           model: {
             messages: [
               {
                 role: "system",
                 content: `You are the AI receptionist for ${businessName}. 
                 
+                IMPORTANT LEGAL NOTICE: 
+                This call IS being recorded for quality and business purposes. If the caller asks if they are being recorded, you MUST say "Yes, this call is being recorded." Do not lie.
+
                 HERE IS YOUR KNOWLEDGE BASE FOR THIS BUSINESS:
                 ${trainingContext}
                 
@@ -102,27 +107,37 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 2. END OF CALL REPORT (Logging)
+    // 2. END OF CALL REPORT (Logging & SMS)
     // ==========================================
     if (message.type === 'end-of-call-report') {
       const call = message.call;
       const analysis = message.analysis || {}; 
+      const customerNumber = call.customer?.number || 'Unknown';
       
       console.log(`📞 Call Ended. ID: ${call.id}`);
 
       // A. Find the User
       const { data: assistantRecord } = await supabaseAdmin
         .from('assistants')
-        .select('user_id')
+        .select(`
+            user_id, 
+            profiles:user_id ( 
+                business_phone, 
+                usage_minutes 
+            )
+        `)
         .eq('vapi_assistant_id', call.assistantId) 
         .maybeSingle();
 
       if (assistantRecord) {
+        const userId = assistantRecord.user_id;
+        const profile = assistantRecord.profiles as any;
+
         // B. Save to 'calls' table
         await supabaseAdmin.from('calls').insert({
-            user_id: assistantRecord.user_id,
+            user_id: userId,
             assistant_id: call.assistantId,
-            customer_number: call.customer?.number || 'Unknown',
+            customer_number: customerNumber,
             status: message.endedReason || 'completed',
             duration_seconds: Math.round(message.durationSeconds || 0),
             summary: analysis.summary || "No summary provided.",
@@ -132,11 +147,30 @@ export async function POST(req: Request) {
 
         // C. Update Usage
         const durationMinutes = (message.durationSeconds || 0) / 60;
-        const { data: profile } = await supabaseAdmin.from('profiles').select('usage_minutes').eq('id', assistantRecord.user_id).single();
         const newUsage = (profile?.usage_minutes || 0) + durationMinutes;
-        await supabaseAdmin.from('profiles').update({ usage_minutes: newUsage }).eq('id', assistantRecord.user_id);
+        
+        await supabaseAdmin
+            .from('profiles')
+            .update({ usage_minutes: newUsage })
+            .eq('id', userId);
         
         console.log(`⏱️ Usage Updated: +${durationMinutes.toFixed(2)} mins.`);
+
+        // D. SEND SMS TO BUSINESS OWNER (Text the Boss)
+        if (profile?.business_phone && analysis.summary) {
+            try {
+                // Ensure number format is correct (Twilio needs E.164, e.g. +447...)
+                // We assume user entered it correctly or we rely on Twilio's lenient formatting for UK numbers
+                await twilioClient.messages.create({
+                    body: `NessDial Alert 📞\nCall from: ${customerNumber}\n\nSummary: ${analysis.summary}`,
+                    from: process.env.TWILIO_PHONE_NUMBER, // Your main Twilio number (the "sender")
+                    to: profile.business_phone
+                });
+                console.log(`📲 SMS Sent to ${profile.business_phone}`);
+            } catch (smsError) {
+                console.error("❌ Failed to send SMS:", smsError);
+            }
+        }
       }
       
       return NextResponse.json({ status: 'Logged' }, { status: 200 });
