@@ -8,10 +8,10 @@ import {
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy, AlertCircle, Mail, Star, Download, Trash2
+  HelpCircle, Copy, AlertCircle, Mail, Star, Download, Trash2, Zap
 } from 'lucide-react';
 
-// --- CUSTOM AUDIO PLAYER COMPONENT ---
+// --- CUSTOM AUDIO PLAYER COMPONENT (Unchanged) ---
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -124,6 +124,7 @@ export default function Dashboard() {
   const [businessName, setBusinessName] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [calls, setCalls] = useState<any[]>([]);
+  const [usageStats, setUsageStats] = useState({ used: 0, limit: 200 }); // Default
   
   // UI State
   const [isEditingName, setIsEditingName] = useState(false);
@@ -138,12 +139,22 @@ export default function Dashboard() {
       if (!user) { router.push('/login'); return; }
       setUser(user);
 
-      const { data: profile } = await supabase.from('profiles').select('business_name, business_phone').eq('id', user.id).single();
+      // Fetch Profile (including usage)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_name, business_phone, usage_minutes, monthly_usage_limit')
+        .eq('id', user.id)
+        .single();
+        
       if (profile) {
         setBusinessName(profile.business_name || "");
         setNewNameInput(profile.business_name || "");
         setUserPhone(profile.business_phone || "");
         setNewPhoneInput(profile.business_phone || "");
+        setUsageStats({
+            used: profile.usage_minutes || 0,
+            limit: profile.monthly_usage_limit || 200
+        });
       }
 
       const { data: assistant } = await supabase.from('assistants').select('*').eq('user_id', user.id).single();
@@ -205,17 +216,13 @@ export default function Dashboard() {
 
   const handleDeleteCall = async (callId: string) => {
     if (!confirm('Are you sure you want to delete this call log? This cannot be undone.')) return;
-    
-    // 1. Optimistic UI update (remove immediately)
     setCalls(calls.filter(c => c.id !== callId));
-
-    // 2. Database delete
     try {
       const { error } = await supabase.from('calls').delete().eq('id', callId);
       if (error) throw error;
     } catch (err) {
       alert('Failed to delete call from database');
-      window.location.reload(); // Revert UI if failed
+      window.location.reload(); 
     }
   };
 
@@ -231,6 +238,10 @@ export default function Dashboard() {
     return raw.replace(/[^0-9+]/g, '');
   };
 
+  // Helper for Usage Bar
+  const usagePercent = Math.min((usageStats.used / usageStats.limit) * 100, 100);
+  const isUsageHigh = usagePercent > 80;
+
   if (loading) return (
     <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -240,7 +251,6 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
       
-      {/* Header */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#020617]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
@@ -251,9 +261,33 @@ export default function Dashboard() {
         </button>
       </header>
 
-      {/* Main Content */}
       <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
         
+        {/* --- USAGE BAR (NEW) --- */}
+        <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 shadow-sm">
+            <div className="flex justify-between items-end mb-2">
+                <div className="flex items-center gap-2">
+                    <Zap className={`h-4 w-4 ${isUsageHigh ? 'text-red-400' : 'text-blue-400'}`} />
+                    <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Monthly Usage</p>
+                </div>
+                <p className="text-xs font-mono text-slate-400">
+                    <span className={isUsageHigh ? 'text-white' : 'text-white'}>{Math.round(usageStats.used)}</span> 
+                    <span className="opacity-50">/{usageStats.limit} mins</span>
+                </p>
+            </div>
+            <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/50">
+                <div 
+                    className={`h-full rounded-full transition-all duration-500 ${isUsageHigh ? 'bg-red-500' : 'bg-blue-500'}`} 
+                    style={{ width: `${usagePercent}%` }}
+                />
+            </div>
+            {isUsageHigh && (
+                <p className="text-[10px] text-red-400 mt-2 text-right">
+                    Approaching limit. Calls may be forwarded to voicemail soon.
+                </p>
+            )}
+        </div>
+
         {/* Business Identity */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-6 shadow-xl border border-slate-800">
           <div className="absolute top-0 right-0 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
@@ -521,7 +555,74 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- FULL SETUP WIZARD (Unchanged) --- */}
+      {/* --- SETTINGS SLIDE-OUT (Unchanged) --- */}
+      <div 
+        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        onClick={() => setIsSettingsOpen(false)}
+      />
+      <div 
+        className={`fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-slate-900 border-l border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      >
+        <div className="flex h-full flex-col">
+          <div className="flex items-center justify-between border-b border-slate-800 px-6 py-5">
+            <h2 className="text-xl font-bold text-white">Settings</h2>
+            <button onClick={() => setIsSettingsOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
+              <X className="h-6 w-6" />
+            </button>
+          </div>
+          
+          <div className="flex-1 px-6 py-6 space-y-4">
+            
+            {/* Account Group */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Account</h3>
+              <Link href="/dashboard/profile" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <User className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">{user?.email}</p></div>
+              </Link>
+              <Link href="/dashboard/billing" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <CreditCard className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Manage subscription</p></div>
+              </Link>
+            </div>
+
+            {/* Support Group */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
+              <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Mail className="h-5 w-5 text-slate-400" />
+                <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
+              </Link>
+              <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Download className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
+              </Link>
+              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Star className="h-5 w-5 text-yellow-500" />
+                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
+              </Link>
+            </div>
+
+          </div>
+
+          <div className="border-t border-slate-800 p-6 space-y-4">
+            {/* Legal Links */}
+            <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-medium">
+                <Link href="/terms" className="hover:text-slate-400 transition-colors">Terms of Service</Link>
+                <Link href="/privacy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link>
+            </div>
+
+            <button 
+              onClick={handleSignOut}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
+            >
+              <LogOut className="h-4 w-4" /> Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* ... Setup Wizard (Unchanged) ... */}
       {isSetupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
@@ -651,73 +752,6 @@ export default function Dashboard() {
             </div>
         </div>
       )}
-
-      {/* --- SETTINGS SLIDE-OUT (Dark Mode) --- */}
-      <div 
-        className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
-        onClick={() => setIsSettingsOpen(false)}
-      />
-      <div 
-        className={`fixed inset-y-0 right-0 z-50 w-full max-w-xs bg-slate-900 border-l border-slate-800 shadow-2xl transition-transform duration-300 ease-in-out ${isSettingsOpen ? 'translate-x-0' : 'translate-x-full'}`}
-      >
-        <div className="flex h-full flex-col">
-          <div className="flex items-center justify-between border-b border-slate-800 px-6 py-5">
-            <h2 className="text-xl font-bold text-white">Settings</h2>
-            <button onClick={() => setIsSettingsOpen(false)} className="rounded-full p-2 text-slate-400 hover:bg-slate-800 hover:text-white">
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          
-          <div className="flex-1 px-6 py-6 space-y-4">
-            
-            {/* Account Group */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Account</h3>
-              <Link href="/dashboard/profile" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <User className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">{user?.email}</p></div>
-              </Link>
-              <Link href="/dashboard/billing" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <CreditCard className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Manage subscription</p></div>
-              </Link>
-            </div>
-
-            {/* Support Group */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
-              <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Mail className="h-5 w-5 text-slate-400" />
-                <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
-              </Link>
-              <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Download className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
-              </Link>
-              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Star className="h-5 w-5 text-yellow-500" />
-                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
-              </Link>
-            </div>
-
-          </div>
-
-          <div className="border-t border-slate-800 p-6 space-y-4">
-            {/* Legal Links */}
-            <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-medium">
-                <Link href="/terms" className="hover:text-slate-400 transition-colors">Terms of Service</Link>
-                <Link href="/privacy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link>
-            </div>
-
-            <button 
-              onClick={handleSignOut}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
-            >
-              <LogOut className="h-4 w-4" /> Sign Out
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2, Mail, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2, Mail, AlertTriangle, Clock } from 'lucide-react';
 
 export default function BillingPage() {
   const router = useRouter();
@@ -57,7 +57,10 @@ export default function BillingPage() {
             
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-300">
-                <CheckCircle className="h-4 w-4 text-blue-400" /> Unlimited Calls
+                <CheckCircle className="h-4 w-4 text-blue-400" /> Unlimited Call Handling
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <Clock className="h-4 w-4 text-blue-400" /> Includes 200 AI Minutes
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-300">
                 <CheckCircle className="h-4 w-4 text-blue-400" /> All Personas (Rab, Claire, Calum)

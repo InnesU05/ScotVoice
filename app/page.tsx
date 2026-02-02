@@ -547,7 +547,7 @@ const CTA = () => {
           </button>
         </Link>
         {/* UPDATED: Pricing Transparency */}
-        <p className="mt-6 text-sm text-slate-500">Subscriptions from £29.99/month • No credit card required for setup • 5-minute process</p>
+        <p className="mt-6 text-sm text-slate-500">Subscriptions from £29.99/month (Includes 200 mins usage) • No credit card required for setup • 5-minute process</p>
       </div>
     </section>
   );
