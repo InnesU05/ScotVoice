@@ -43,10 +43,11 @@ export default function TrainingPage() {
     fetchData();
   }, [router]);
 
-  // 2. Save Data to Supabase
+  // 2. Save Data to Supabase AND Sync to Vapi
   const handleSave = async () => {
     setSaving(true);
     try {
+        // A. Save to Database
         const { error } = await supabase
             .from('profiles')
             .update({
@@ -58,7 +59,20 @@ export default function TrainingPage() {
             .eq('id', user.id);
 
         if (error) throw error;
-        alert('Training data saved! Your AI has been updated.');
+
+        // B. Sync to Vapi (The Magic Step)
+        // This tells the backend to "Bake" this new data into the AI's permanent brain
+        const res = await fetch('/api/update-agent', {
+            method: 'POST',
+            body: JSON.stringify({ 
+                userId: user.id, 
+                action: 'update_prompt' 
+            })
+        });
+
+        if (!res.ok) throw new Error('Failed to sync with Vapi');
+
+        alert('Training data saved & AI updated!');
     } catch (err) {
         alert('Failed to save training data.');
         console.error(err);
@@ -136,7 +150,7 @@ export default function TrainingPage() {
           />
         </div>
 
-        {/* 3. Services & Pricing (New) */}
+        {/* 3. Services & Pricing */}
         <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
           <div className="flex items-center gap-3 mb-4">
             <Tag className="h-5 w-5 text-green-400" />
@@ -151,7 +165,7 @@ export default function TrainingPage() {
           />
         </div>
 
-        {/* 4. FAQs (New) */}
+        {/* 4. FAQs */}
         <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
           <div className="flex items-center gap-3 mb-4">
             <HelpCircle className="h-5 w-5 text-yellow-400" />
