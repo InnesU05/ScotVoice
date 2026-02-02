@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import twilio from 'twilio';
 
+// Initialize Twilio
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export const dynamic = 'force-dynamic';
@@ -13,9 +14,7 @@ export async function POST(req: Request) {
 
     console.log(`📣 Vapi Event: ${message.type}`);
 
-    // ==========================================
-    // 1. INCOMING CALL (Gatekeeper Only)
-    // ==========================================
+    // --- 1. HANDLE INCOMING CALL ---
     if (message.type === 'assistant-request') {
       const calledNumber = message.call.phoneNumberId; 
       
@@ -26,6 +25,7 @@ export async function POST(req: Request) {
         .single();
 
       if (assistantRecord) {
+        // Check Minutes Limit
         const { data: profile } = await supabaseAdmin
             .from('profiles')
             .select('usage_minutes, monthly_usage_limit')
@@ -36,26 +36,23 @@ export async function POST(req: Request) {
         const limit = profile?.monthly_usage_limit || 200;
 
         if (currentUsage >= limit) {
-             console.warn(`⛔ Limit Reached (${currentUsage}/${limit}). Blocking call.`);
+             console.warn(`⛔ Limit Reached. Blocking call.`);
              return NextResponse.json({ error: "Limit reached" }, { status: 403 });
         }
 
-        // ✅ WE RETURN THE ID. 
-        // This tells Vapi: "Go ahead and use the Assistant I already set up in your dashboard."
         return NextResponse.json({ assistantId: assistantRecord.vapi_assistant_id });
       }
-
       return NextResponse.json({ assistantId: null });
     }
 
-    // ==========================================
-    // 2. END OF CALL REPORT (Logging & SMS)
-    // ==========================================
+    // --- 2. HANDLE END OF CALL (SMS LOGIC) ---
     if (message.type === 'end-of-call-report') {
       const call = message.call;
       const analysis = message.analysis || {}; 
       const customerNumber = call.customer?.number || 'Unknown';
       
+      console.log(`📞 Call Ended. Customer: ${customerNumber}`);
+
       const { data: assistantRecord } = await supabaseAdmin
         .from('assistants')
         .select('user_id')
@@ -64,40 +61,57 @@ export async function POST(req: Request) {
 
       if (assistantRecord) {
         const userId = assistantRecord.user_id;
-        const { data: profile } = await supabaseAdmin.from('profiles').select('business_phone, usage_minutes').eq('id', userId).single();
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('business_phone, usage_minutes')
+            .eq('id', userId)
+            .single();
 
-        // Log Call
-        await supabaseAdmin.from('calls').insert({
-            user_id: userId,
-            assistant_id: call.assistantId,
-            customer_number: customerNumber,
-            status: message.endedReason || 'completed',
-            duration_seconds: Math.round(message.durationSeconds || 0),
-            summary: analysis.summary || "No summary provided.",
-            recording_url: message.recordingUrl || null,
-            started_at: call.startedAt || new Date().toISOString()
-        });
+        if (profile) {
+            // A. Log Call to Database
+            await supabaseAdmin.from('calls').insert({
+                user_id: userId,
+                assistant_id: call.assistantId,
+                customer_number: customerNumber,
+                status: message.endedReason || 'completed',
+                duration_seconds: Math.round(message.durationSeconds || 0),
+                summary: analysis.summary || "No summary provided.",
+                recording_url: message.recordingUrl || null,
+                started_at: call.startedAt || new Date().toISOString()
+            });
 
-        // Update Usage
-        const durationMinutes = (message.durationSeconds || 0) / 60;
-        await supabaseAdmin.from('profiles').update({ usage_minutes: (profile?.usage_minutes || 0) + durationMinutes }).eq('id', userId);
-        
-        // --- SEND SMS (RESTORED & VERIFIED) ---
-        if (profile?.business_phone && analysis.summary) {
-            try {
-                console.log(`📨 Attempting SMS to ${profile.business_phone}...`);
-                const sms = await twilioClient.messages.create({
-                    body: `NessDial Alert 📞\nCall from: ${customerNumber}\n\nSummary: ${analysis.summary}`,
-                    from: process.env.TWILIO_PHONE_NUMBER,
-                    to: profile.business_phone
-                });
-                console.log(`✅ SMS Sent! SID: ${sms.sid}`);
-            } catch (smsError: any) {
-                console.error("❌ SMS Failed:", smsError?.message || smsError);
+            // B. Update Usage Minutes
+            const durationMinutes = (message.durationSeconds || 0) / 60;
+            await supabaseAdmin
+                .from('profiles')
+                .update({ usage_minutes: (profile.usage_minutes || 0) + durationMinutes })
+                .eq('id', userId);
+            
+            // C. SEND SMS (GUARANTEED)
+            if (profile.business_phone) {
+                // 1. Prepare Message
+                let smsBody = `NessDial 📞\nCall from: ${customerNumber}`;
+                if (analysis.summary) {
+                    smsBody += `\n\nSummary: ${analysis.summary}`;
+                } else {
+                    smsBody += `\n\n(No voice message left)`;
+                }
+
+                // 2. Send via Twilio
+                try {
+                    console.log(`📨 Sending SMS to ${profile.business_phone}...`);
+                    await twilioClient.messages.create({
+                        body: smsBody,
+                        from: process.env.TWILIO_PHONE_NUMBER,
+                        to: profile.business_phone
+                    });
+                    console.log(`✅ SMS Sent Successfully!`);
+                } catch (smsError: any) {
+                    console.error("❌ SMS FAILED:", smsError.message);
+                }
+            } else {
+                console.warn("⚠️ No business_phone found in profile. SMS skipped.");
             }
-        } else {
-            console.warn("⚠️ SMS Skipped: Missing phone number or summary.");
-            console.log(`Phone: ${profile?.business_phone ? 'Present' : 'Missing'}, Summary: ${analysis.summary ? 'Present' : 'Missing'}`);
         }
       }
       return NextResponse.json({ status: 'Logged' }, { status: 200 });
@@ -106,7 +120,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ message: 'Handled' });
 
   } catch (error: any) {
-    console.error('🚨 Error:', error.message);
+    console.error('🚨 Webhook Error:', error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
