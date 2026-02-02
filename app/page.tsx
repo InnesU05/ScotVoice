@@ -559,14 +559,15 @@ const Footer = () => {
     <footer className="bg-white text-slate-600 py-12 border-t border-slate-200">
       <div className="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-2">
-           {/* 🚨 LOGO REPLACEMENT HERE */}
+           {/* 🚨 Ensure this matches your logo setup */}
            <img src="/logo.png" alt="NessDial" className="w-8 h-8 rounded-lg" />
            <span className="text-slate-900 font-bold text-xl">NessDial</span>
         </div>
         <p className="text-sm">© {new Date().getFullYear()} NessDial AI. Made in Scotland.</p>
         <div className="flex gap-6 text-sm font-medium">
-          <a href="#" className="hover:text-blue-600 transition">Privacy Policy</a>
-          <a href="#" className="hover:text-blue-600 transition">Terms of Service</a>
+          {/* UPDATED LINKS HERE */}
+          <Link href="/privacy" className="hover:text-blue-600 transition">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-blue-600 transition">Terms of Service</Link>
           <a href="mailto:hello@nessdial.ai" className="hover:text-blue-600 transition">Contact</a>
         </div>
       </div>
