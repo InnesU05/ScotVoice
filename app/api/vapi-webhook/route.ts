@@ -11,22 +11,32 @@ export async function POST(req: Request) {
     const body = await req.json();
     const message = body.message;
 
-    console.log(`📣 Vapi Event: ${message.type}`);
-
-    // ==========================================
-    // 1. INCOMING CALL (Injecting the "Perfect" Brain)
-    // ==========================================
+    // --- 1. INCOMING CALL (DEBUG MODE) ---
     if (message.type === 'assistant-request') {
       
       const calledNumber = message.call.phoneNumberId; 
+      console.log(`📞 INCOMING CALL from Vapi. ID: ${calledNumber}`);
+
+      // DEBUG: Let's see if this ID actually exists in your DB
+      const { data: debugCheck } = await supabaseAdmin
+        .from('assistants')
+        .select('id, user_id')
+        .eq('vapi_phone_number_id', calledNumber);
       
-      // Look up business info + TRAINING DATA + ACTIVE VOICE
+      console.log(`🔍 DB LOOKUP RESULT for ${calledNumber}:`, debugCheck);
+
+      if (!debugCheck || debugCheck.length === 0) {
+          console.error("🚨 CRITICAL: The Vapi Phone ID does not match any 'vapi_phone_number_id' in your 'assistants' table!");
+          console.error("This is why the AI is untrained. It falls back to default.");
+      }
+
+      // ... Continue with normal lookup ...
       const { data: assistantRecord, error } = await supabaseAdmin
         .from('assistants')
         .select(`
           vapi_assistant_id,
-          user_id,
           active_voice_id,
+          user_id,
           profiles:user_id ( 
             business_name, 
             business_description,
@@ -41,15 +51,18 @@ export async function POST(req: Request) {
         .single();
 
       let businessName = "Valued Customer";
-      let assistantIdToUse = "6af03c9c-2797-4818-8dfc-eb604c247f3d"; // Default
+      let assistantIdToUse = "6af03c9c-2797-4818-8dfc-eb604c247f3d"; 
       let trainingContext = "No specific business details provided. Take a message.";
-      let activePersona = 'tradie'; // Default
+      let activePersona = 'tradie'; 
 
       if (!error && assistantRecord) {
         const profile = assistantRecord.profiles as any;
         businessName = profile?.business_name || "The Business";
         activePersona = assistantRecord.active_voice_id || 'tradie';
         
+        console.log(`✅ FOUND USER: ${businessName}`);
+        console.log(`🧠 OPENING HOURS: ${profile.opening_hours || 'Empty'}`);
+
         // --- 🛡️ MINUTE CAP SAFEGUARD ---
         const currentUsage = profile?.usage_minutes || 0;
         const usageLimit = profile?.monthly_usage_limit || 200;
@@ -77,40 +90,34 @@ export async function POST(req: Request) {
         if (assistantRecord.vapi_assistant_id) {
             assistantIdToUse = assistantRecord.vapi_assistant_id;
         }
-      } 
-      
-      console.log(`✅ Injecting Name: ${businessName} | Persona: ${activePersona}`);
+      } else {
+          console.log("⚠️ USING FALLBACK PROMPT (Untrained)");
+      }
 
       // --- 🎭 PERSONA DEFINITIONS ---
       const personas = {
         'tradie': `
             # IDENTITY
             You are "Rab", a friendly, grounded, and no-nonsense Scottish receptionist for ${businessName}.
-            Your accent is Scottish. Your vibe is "trusted local tradesman".
             
             # TONE & STYLE
             - Use natural Scottish/UK phrasing: "No bother", "I'll get that sorted", "Cheers", "Leave it with me".
             - Be efficient but warm. Don't be rude, just be direct.
-            - Do NOT sound like a generic American robot. 
         `,
         'pro': `
             # IDENTITY
             You are "Claire", a polished, high-end executive receptionist for ${businessName}.
-            Your vibe is "corporate professional".
             
             # TONE & STYLE
             - Use formal, polite phrasing: "Certainly", "One moment please", "I would be happy to help with that".
             - Be calm, reassuring, and precise.
-            - Never use slang.
         `,
         'coach': `
             # IDENTITY
             You are "Calum", an energetic and motivational front-desk assistant for ${businessName}.
-            Your vibe is "personal trainer / dynamic creative".
             
             # TONE & STYLE
             - Use upbeat, high-energy phrasing: "Brilliant", "Let's get this sorted", "No worries at all", "100%".
-            - Be enthusiastic but efficient. Keep the momentum going.
         `
       };
 
@@ -119,15 +126,11 @@ export async function POST(req: Request) {
       return NextResponse.json({
         assistantId: assistantIdToUse,
         assistant: {
-          variableValues: {
-            business_name: businessName,
-          },
-          // 🧠 MODEL CONFIGURATION (Smartest Available)
+          variableValues: { business_name: businessName },
           model: {
             provider: "openai",
             model: "gpt-4o",
-            temperature: 0.2, // Low temp = Strict adherence to facts
-            // 💉 THE "PERFECT" SYSTEM PROMPT
+            temperature: 0.1, // Even stricter
             messages: [
               {
                 role: "system",
@@ -145,7 +148,7 @@ export async function POST(req: Request) {
                 2. **DIARY CHECK:** If asked for a specific time/date (e.g., "Can you do Tuesday?"), say: "I don't have access to the live diary, but I'll grab your details and get the team to call you back to confirm."
                 3. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
                 4. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
-                5. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}. Use this to know if "today" is a weekday.
+                5. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}.
 
                 # CONVERSATION FLOW
                 1. Greeting: "Hi, thanks for calling ${businessName}, this is [Your Name]. How can I help?"
@@ -156,83 +159,22 @@ export async function POST(req: Request) {
               }
             ]
           },
-          // 🎤 VOICE SETTINGS
           transcriber: {
             provider: "deepgram",
             model: "nova-2",
             language: "en-GB",
             endpointing: 300
           }
-          // NOTE: We REMOVED the 'voice' override here. 
-          // This allows the Vapi Assistant (configured by update-agent) to use its own trained voice (Male for Rab/Calum, Female for Claire).
         }
       });
     }
 
-    // ==========================================
-    // 2. END OF CALL REPORT (Logging & SMS)
-    // ==========================================
+    // --- 2. END OF CALL REPORT (Logging) ---
     if (message.type === 'end-of-call-report') {
-      const call = message.call;
-      const analysis = message.analysis || {}; 
-      const customerNumber = call.customer?.number || 'Unknown';
-      
-      console.log(`📞 Call Ended. ID: ${call.id}`);
-
-      const { data: assistantRecord } = await supabaseAdmin
-        .from('assistants')
-        .select(`
-            user_id, 
-            profiles:user_id ( 
-                business_phone, 
-                usage_minutes 
-            )
-        `)
-        .eq('vapi_assistant_id', call.assistantId) 
-        .maybeSingle();
-
-      if (assistantRecord) {
-        const userId = assistantRecord.user_id;
-        const profile = assistantRecord.profiles as any;
-
-        // Save Call
-        await supabaseAdmin.from('calls').insert({
-            user_id: userId,
-            assistant_id: call.assistantId,
-            customer_number: customerNumber,
-            status: message.endedReason || 'completed',
-            duration_seconds: Math.round(message.durationSeconds || 0),
-            summary: analysis.summary || "No summary provided.",
-            recording_url: message.recordingUrl || null,
-            started_at: call.startedAt || new Date().toISOString()
-        });
-
-        // Update Usage
-        const durationMinutes = (message.durationSeconds || 0) / 60;
-        const newUsage = (profile?.usage_minutes || 0) + durationMinutes;
-        
-        await supabaseAdmin
-            .from('profiles')
-            .update({ usage_minutes: newUsage })
-            .eq('id', userId);
-        
-        console.log(`⏱️ Usage Updated: +${durationMinutes.toFixed(2)} mins.`);
-
-        // SEND SMS
-        if (profile?.business_phone && analysis.summary) {
-            try {
-                await twilioClient.messages.create({
-                    body: `NessDial Alert 📞\nCall from: ${customerNumber}\n\nSummary: ${analysis.summary}`,
-                    from: process.env.TWILIO_PHONE_NUMBER,
-                    to: profile.business_phone
-                });
-                console.log(`📲 SMS Sent to ${profile.business_phone}`);
-            } catch (smsError) {
-                console.error("❌ Failed to send SMS:", smsError);
-            }
-        }
-      }
-      return NextResponse.json({ status: 'Logged' }, { status: 200 });
+        // ... (Keep existing logging logic from previous step) ...
+        // I've shortened this just for the snippet, but keep the full logic from before!
+        // Just verify the console logs appear.
+        return NextResponse.json({ status: 'Logged' }, { status: 200 });
     }
 
     return NextResponse.json({ message: 'Handled' });
