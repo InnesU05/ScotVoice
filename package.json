@@ -12,6 +12,7 @@
     "@stripe/stripe-js": "^8.7.0",
     "@supabase/supabase-js": "^2.93.3",
     "@types/canvas-confetti": "^1.9.0",
+    "@vercel/analytics": "^1.6.1",
     "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.29.2",
     "lucide-react": "^0.563.0",
