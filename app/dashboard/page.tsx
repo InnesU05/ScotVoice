@@ -8,10 +8,10 @@ import {
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy, AlertCircle
+  HelpCircle, Copy, AlertCircle, Mail, Star
 } from 'lucide-react';
 
-// --- CUSTOM AUDIO PLAYER COMPONENT ---
+// ... [Previous AudioPlayer code remains exactly the same] ...
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -157,7 +157,7 @@ export default function Dashboard() {
     fetchData();
   }, [router]);
 
-  // --- ACTIONS ---
+  // ... [Actions & Setup Handlers remain exactly the same as previous file] ...
   const handleUpdateName = async () => {
     if (!newNameInput.trim()) return;
     setUpdating(true);
@@ -224,6 +224,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
       
+      {/* Header */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#020617]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
@@ -234,14 +235,15 @@ export default function Dashboard() {
         </button>
       </header>
 
+      {/* Main Content */}
       <main className="mx-auto max-w-xl px-4 py-8 space-y-8">
         
-        {/* 1. BUSINESS IDENTITY */}
+        {/* Business Identity */}
         <div className="relative overflow-hidden rounded-3xl bg-slate-900 p-6 shadow-xl border border-slate-800">
           <div className="absolute top-0 right-0 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
           
           <div className="relative z-10">
-            {/* NAME SECTION */}
+            {/* Name */}
             <div className="flex items-center justify-between mb-2">
               <h2 className="text-xs font-bold text-blue-400 uppercase tracking-wider">Business Name</h2>
               {isEditingName ? (
@@ -272,7 +274,7 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* AI NUMBER BOX - MOBILE OPTIMIZED (Stacked) */}
+            {/* AI Number (Stacked on Mobile) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 shrink-0">
@@ -294,7 +296,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {/* USER PHONE BOX - MOBILE OPTIMIZED */}
+            {/* User Number (Stacked on Mobile) */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <div className="flex items-center gap-4 w-full">
                 <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 shrink-0">
@@ -333,7 +335,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* 2. TRAIN AI BUTTON */}
+        {/* Train AI Button */}
         <Link href="/dashboard/training" className="block mb-8">
           <div className="group w-full p-4 rounded-3xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-between cursor-pointer border border-blue-500/50">
             <div className="flex items-center gap-4">
@@ -351,7 +353,7 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {/* 3. COLLAPSIBLE: Active Persona */}
+        {/* Active Persona (Collapsible) */}
         <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
           <button 
             onClick={() => setIsPersonaOpen(!isPersonaOpen)}
@@ -413,7 +415,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* 4. COLLAPSIBLE: Call Logs */}
+        {/* Call Logs (Collapsible) */}
         <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
           <button 
             onClick={() => setIsActivityOpen(!isActivityOpen)}
@@ -494,12 +496,10 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- FULL SETUP WIZARD --- */}
+      {/* --- SETUP GUIDE MODAL (Unchanged) --- */}
       {isSetupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
-                
-                {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
                     <div>
                         <h2 className="text-xl font-bold text-white">Setup Voicemail</h2>
@@ -509,8 +509,6 @@ export default function Dashboard() {
                         <X className="h-5 w-5" />
                     </button>
                 </div>
-
-                {/* Device Tabs */}
                 <div className="flex border-b border-slate-800 shrink-0">
                     <button 
                         onClick={() => setDeviceType('iphone')}
@@ -525,11 +523,7 @@ export default function Dashboard() {
                         Android
                     </button>
                 </div>
-
-                {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
-                    
-                    {/* Step 1: The Code (Primary) */}
                     <section>
                         <div className="flex items-center gap-2 mb-3">
                             <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">Method 1 (Easiest)</span>
@@ -538,7 +532,6 @@ export default function Dashboard() {
                         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
                             This creates a rule: "If I don't answer in 20 seconds, send the call to NessDial."
                         </p>
-                        
                         <div className="bg-black/30 p-4 rounded-xl border border-slate-700 space-y-3">
                             <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">1</div>
@@ -572,14 +565,11 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </section>
-
-                    {/* Step 2: Manual Method (Fallback) */}
                     <section className="border-t border-slate-800 pt-6">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="bg-slate-700 text-slate-200 text-xs font-bold px-2 py-0.5 rounded">Method 2 (Manual)</span>
                             <h3 className="font-bold text-white">Phone Settings</h3>
                         </div>
-                        
                         {deviceType === 'iphone' ? (
                             <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-300 space-y-2">
                                 <p className="flex gap-2"><AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" /> <strong>Note:</strong> Most UK carriers hide this menu on iPhone. Use Method 1 if possible.</p>
@@ -603,8 +593,6 @@ export default function Dashboard() {
                             </div>
                         )}
                     </section>
-
-                    {/* Step 3: Test */}
                     <section className="bg-green-900/10 p-4 rounded-xl border border-green-500/20 text-center">
                         <h3 className="font-bold text-green-400 mb-2">Final Step: Test It!</h3>
                         <p className="text-sm text-green-200/70 mb-4">
@@ -617,13 +605,12 @@ export default function Dashboard() {
                             I'm All Set up
                         </button>
                     </section>
-
                 </div>
             </div>
         </div>
       )}
 
-      {/* ... Settings Slide-out (Unchanged) ... */}
+      {/* --- SETTINGS SLIDE-OUT (UPDATED) --- */}
       <div 
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSettingsOpen(false)}
@@ -639,15 +626,34 @@ export default function Dashboard() {
             </button>
           </div>
           
-          <div className="flex-1 px-6 py-6 space-y-2">
-            <div className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800">
-              <User className="h-5 w-5 text-blue-400" />
-              <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">{user?.email}</p></div>
+          <div className="flex-1 px-6 py-6 space-y-4">
+            
+            {/* Account Group */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Account</h3>
+              <Link href="/dashboard/profile" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <User className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">Manage details</p></div>
+              </Link>
+              <Link href="/dashboard/billing" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <CreditCard className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Subscription & invoices</p></div>
+              </Link>
             </div>
-            <div className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800">
-              <CreditCard className="h-5 w-5 text-blue-400" />
-              <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Manage subscription</p></div>
+
+            {/* Support Group */}
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
+              <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Mail className="h-5 w-5 text-slate-400" />
+                <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
+              </Link>
+              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Star className="h-5 w-5 text-yellow-500" />
+                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
+              </Link>
             </div>
+
           </div>
 
           <div className="border-t border-slate-800 p-6">
