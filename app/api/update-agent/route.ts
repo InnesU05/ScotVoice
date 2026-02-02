@@ -50,6 +50,7 @@ const PERSONAS = {
 function constructSystemPrompt(activeVoiceId: string, profile: any) {
   const businessName = profile?.business_name || "The Business";
   
+  // Get the base personality
   let basePersona = PERSONAS[activeVoiceId as keyof typeof PERSONAS] || PERSONAS['tradie'];
   basePersona = basePersona.replace(/{{business_name}}/g, businessName);
 
@@ -135,6 +136,7 @@ export async function POST(req: Request) {
         apiPayload.analysisPlan = { summaryPlan: { enabled: true } };
 
         // 🛡️ CRITICAL FIX: Remove System IDs from blueprint to prevent API Error
+        // We strip 'id', 'orgId', 'createdAt', 'updatedAt' so Vapi treats this as a FRESH request
         const { id, orgId, createdAt, updatedAt, ...cleanBlueprint } = blueprint;
         finalBody = { ...cleanBlueprint, ...apiPayload };
       }
