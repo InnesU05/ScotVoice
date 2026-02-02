@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { 
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
-  ChevronDown, ChevronUp, BrainCircuit, ChevronRight
+  ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -117,11 +117,14 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [assistantData, setAssistantData] = useState<any>(null);
   const [businessName, setBusinessName] = useState("");
+  const [userPhone, setUserPhone] = useState(""); // New State
   const [calls, setCalls] = useState<any[]>([]);
   
   // UI State
   const [isEditingName, setIsEditingName] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false); // New State
   const [newNameInput, setNewNameInput] = useState("");
+  const [newPhoneInput, setNewPhoneInput] = useState(""); // New State
   const [selectedVoice, setSelectedVoice] = useState("tradie");
 
   useEffect(() => {
@@ -130,10 +133,18 @@ export default function Dashboard() {
       if (!user) { router.push('/login'); return; }
       setUser(user);
 
-      const { data: profile } = await supabase.from('profiles').select('business_name').eq('id', user.id).single();
+      // Fetch Profile (Name + Phone)
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('business_name, business_phone')
+        .eq('id', user.id)
+        .single();
+
       if (profile) {
-        setBusinessName(profile.business_name);
-        setNewNameInput(profile.business_name);
+        setBusinessName(profile.business_name || "");
+        setNewNameInput(profile.business_name || "");
+        setUserPhone(profile.business_phone || "");
+        setNewPhoneInput(profile.business_phone || "");
       }
 
       const { data: assistant } = await supabase.from('assistants').select('*').eq('user_id', user.id).single();
@@ -163,6 +174,21 @@ export default function Dashboard() {
     setUpdating(false);
   };
 
+  const handleUpdatePhone = async () => {
+    if (!newPhoneInput.trim()) return;
+    setUpdating(true);
+    try {
+      const res = await fetch('/api/update-agent', {
+        method: 'POST',
+        body: JSON.stringify({ userId: user.id, action: 'update_phone', payload: { phone: newPhoneInput } })
+      });
+      if (!res.ok) throw new Error('Failed');
+      setUserPhone(newPhoneInput);
+      setIsEditingPhone(false);
+    } catch (err) { alert('Failed to update phone number'); }
+    setUpdating(false);
+  };
+
   const handleSwitchVoice = async (voiceId: string) => {
     if (updating) return;
     setUpdating(true);
@@ -186,20 +212,17 @@ export default function Dashboard() {
   };
 
   if (loading) return (
-    // Updated background to match main theme
     <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
     </div>
   );
 
   return (
-    // 🎨 UPDATED BACKGROUND: Darker (#020617) to make cards pop
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans pb-20 selection:bg-blue-500/30">
       
       {/* --- HEADER --- */}
       <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-slate-800 bg-[#020617]/80 px-6 backdrop-blur-md">
         <div className="flex items-center gap-3">
-          {/* 🚨 LOGO FIXED: Points to /logo.png */}
           <img src="/logo.png" alt="NessDial" className="h-8 w-8 rounded-lg shadow-lg shadow-blue-900/20" />
           <span className="text-lg font-bold tracking-tight text-white">NessDial</span>
         </div>
@@ -215,8 +238,9 @@ export default function Dashboard() {
           <div className="absolute top-0 right-0 h-32 w-32 bg-blue-500/10 blur-3xl rounded-full pointer-events-none"></div>
           
           <div className="relative z-10">
+            {/* NAME SECTION */}
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-wider">Business Identity</h2>
+              <h2 className="text-xs font-bold text-blue-400 uppercase tracking-wider">Business Name</h2>
               {isEditingName ? (
                  <div className="flex gap-3">
                    <button onClick={() => setIsEditingName(false)} className="text-xs text-slate-400 hover:text-white transition-colors">Cancel</button>
@@ -245,7 +269,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+            {/* AI NUMBER BOX */}
+            <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
               <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
                 <Phone className="h-5 w-5" />
               </div>
@@ -256,11 +281,47 @@ export default function Dashboard() {
                 </p>
               </div>
             </div>
+
+            {/* USER PHONE BOX (NEW) */}
+            <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
+              <div className="flex items-center gap-4 w-full">
+                <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400">
+                  <Smartphone className="h-5 w-5" />
+                </div>
+                <div className="w-full">
+                  <p className="text-xs text-slate-400 font-medium">Your Business Mobile</p>
+                  {isEditingPhone ? (
+                    <input 
+                      type="tel"
+                      value={newPhoneInput}
+                      onChange={(e) => setNewPhoneInput(e.target.value)}
+                      placeholder="+44 7700 900000"
+                      className="w-full bg-transparent text-lg font-mono font-semibold text-white border-b border-purple-500 focus:outline-none"
+                      autoFocus
+                    />
+                  ) : (
+                    <p className="text-lg font-mono font-semibold text-white tracking-wide">
+                      {userPhone || <span className="text-slate-600 text-sm italic">Add your number...</span>}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {isEditingPhone ? (
+                 <div className="flex flex-col gap-2">
+                   <button onClick={handleUpdatePhone} disabled={updating} className="text-xs text-purple-400 font-bold">Save</button>
+                   <button onClick={() => setIsEditingPhone(false)} className="text-xs text-slate-500">Cancel</button>
+                 </div>
+              ) : (
+                 <button onClick={() => setIsEditingPhone(true)} className="p-2 text-slate-500 hover:text-purple-400 transition-colors">
+                   <Edit2 className="h-4 w-4" />
+                 </button>
+              )}
+            </div>
+
           </div>
         </div>
 
         {/* 2. TRAIN AI BUTTON */}
-        {/* Added explicit spacing (mb-4) and replaced cog with ChevronRight */}
         <Link href="/dashboard/training" className="block">
           <div className="group w-full p-4 rounded-3xl bg-blue-600 hover:bg-blue-500 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-between cursor-pointer border border-blue-500/50">
             <div className="flex items-center gap-4">

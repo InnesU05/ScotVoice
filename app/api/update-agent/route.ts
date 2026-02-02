@@ -32,17 +32,19 @@ export async function POST(req: Request) {
       const newName = payload.name;
       await supabaseAdmin.from('profiles').update({ business_name: newName }).eq('id', userId);
       
+      // Update Vapi Assistant Prompt
       const agentRes = await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
         headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
       });
       const agent = await agentRes.json();
 
       let systemMsg = agent.model.messages.find((m: any) => m.role === 'system')?.content || "";
+      // Naive replace - strictly speaking we should re-fetch blueprint but this preserves other edits
       systemMsg = systemMsg.replace(businessName, newName);
+      
       let firstMsg = agent.firstMessage || "";
       firstMsg = firstMsg.replace(businessName, newName);
 
-      // PATCH with Summary Enabled
       await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
         method: 'PATCH',
         headers: {
@@ -59,17 +61,28 @@ export async function POST(req: Request) {
               ...agent.model.messages.filter((m: any) => m.role !== 'system')
             ]
           },
-          // 🔧 FIX: Force Enable Summaries
-          analysisPlan: {
-            summaryPlan: { enabled: true }
-          }
+          analysisPlan: { summaryPlan: { enabled: true } }
         }),
       });
 
       return NextResponse.json({ success: true });
     }
 
-    // --- CASE 2: SWITCH VOICE ---
+    // --- CASE 2: UPDATE USER PHONE NUMBER (New) ---
+    if (action === 'update_phone') {
+        const newPhone = payload.phone;
+        // Just update Supabase for now. 
+        // Later we can inject this into Vapi if we want the AI to know the owner's number.
+        const { error } = await supabaseAdmin
+            .from('profiles')
+            .update({ business_phone: newPhone })
+            .eq('id', userId);
+
+        if (error) throw error;
+        return NextResponse.json({ success: true });
+    }
+
+    // --- CASE 3: SWITCH VOICE ---
     if (action === 'switch_voice') {
       const targetBlueprintId = BLUEPRINTS[payload.voiceId as keyof typeof BLUEPRINTS];
       if (!targetBlueprintId) throw new Error('Invalid Voice ID');
@@ -104,10 +117,7 @@ export async function POST(req: Request) {
               ...blueprint.model.messages.filter((m: any) => m.role !== 'system')
             ]
           },
-          // 🔧 FIX: Force Enable Summaries
-          analysisPlan: {
-            summaryPlan: { enabled: true }
-          },
+          analysisPlan: { summaryPlan: { enabled: true } },
           id: undefined, orgId: undefined, createdAt: undefined, updatedAt: undefined, isServerUrlSecretSet: undefined
         }),
       });
