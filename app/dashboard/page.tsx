@@ -8,7 +8,7 @@ import {
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
   ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
-  HelpCircle, Copy, AlertCircle, Mail, Star
+  HelpCircle, Copy, AlertCircle, Mail, Star, Download
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -551,6 +551,7 @@ export default function Dashboard() {
                                 <div className="flex-1">
                                     <p className="text-sm text-slate-300 mb-2">Type this exact code and press <strong>Call</strong>:</p>
                                     
+                                    {/* --- FONT SIZE FIX HERE --- */}
                                     <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-xs sm:text-sm text-green-400 tracking-wider shadow-inner break-all">
                                         <span className="flex-1">
                                             **61*{getCleanNumber()}*11*20#
@@ -663,6 +664,10 @@ export default function Dashboard() {
               <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Mail className="h-5 w-5 text-slate-400" />
                 <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
+              </Link>
+              <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Download className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
               </Link>
               <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Star className="h-5 w-5 text-yellow-500" />

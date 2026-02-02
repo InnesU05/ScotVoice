@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2, Mail } from 'lucide-react';
+import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2, Mail, AlertTriangle } from 'lucide-react';
 
 export default function BillingPage() {
   const router = useRouter();
@@ -26,7 +26,6 @@ export default function BillingPage() {
       if (data.url) {
         window.location.href = data.url; // Redirect to Stripe
       } else {
-        // If we get the "No active subscription" error, we show a helpful alert
         alert(data.error || "Could not load billing portal. If you haven't subscribed yet, please go through checkout.");
       }
     } catch (err) {
@@ -45,7 +44,8 @@ export default function BillingPage() {
         
         <h1 className="text-2xl font-bold text-white mb-8">Billing & Subscription</h1>
 
-        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden">
+        {/* Subscription Card */}
+        <div className="bg-gradient-to-br from-slate-900 to-slate-800 p-6 rounded-2xl border border-slate-700 relative overflow-hidden mb-6">
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <CreditCard className="h-32 w-32 text-white" />
           </div>
@@ -69,11 +69,31 @@ export default function BillingPage() {
           </div>
         </div>
 
-        <div className="mt-6">
+        {/* 🚨 IMPORTANT WARNING BOX */}
+        <div className="bg-red-950/30 border border-red-500/30 p-5 rounded-2xl mb-6 flex gap-4">
+            <div className="shrink-0">
+                <div className="h-10 w-10 bg-red-500/20 rounded-full flex items-center justify-center text-red-500">
+                    <AlertTriangle className="h-5 w-5" />
+                </div>
+            </div>
+            <div>
+                <h3 className="font-bold text-red-400 text-sm mb-1">Before You Cancel</h3>
+                <p className="text-xs text-red-200/70 leading-relaxed mb-3">
+                    If you cancel, your AI number will be disconnected instantly. 
+                    To fix your voicemail, you <strong>must</strong> reset call forwarding on your phone.
+                </p>
+                <div className="bg-red-950/50 border border-red-500/20 px-3 py-2 rounded-lg inline-block">
+                    <p className="text-xs font-mono font-bold text-red-300 tracking-wide">Dial ##002# and Call</p>
+                </div>
+            </div>
+        </div>
+
+        {/* Manage Button */}
+        <div>
           <button 
             disabled={loading}
             onClick={handleManageSubscription}
-            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all"
+            className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all shadow-lg"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ExternalLink className="h-4 w-4" /> Manage Subscription</>}
           </button>
