@@ -11,7 +11,7 @@ import {
   HelpCircle, Copy, AlertCircle, Mail, Star
 } from 'lucide-react';
 
-// ... [Previous AudioPlayer code remains exactly the same] ...
+// --- CUSTOM AUDIO PLAYER COMPONENT ---
 function AudioPlayer({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -157,7 +157,7 @@ export default function Dashboard() {
     fetchData();
   }, [router]);
 
-  // ... [Actions & Setup Handlers remain exactly the same as previous file] ...
+  // --- ACTIONS ---
   const handleUpdateName = async () => {
     if (!newNameInput.trim()) return;
     setUpdating(true);
@@ -496,10 +496,12 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- SETUP GUIDE MODAL (Unchanged) --- */}
+      {/* --- FULL SETUP WIZARD --- */}
       {isSetupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
+                
+                {/* Header */}
                 <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
                     <div>
                         <h2 className="text-xl font-bold text-white">Setup Voicemail</h2>
@@ -509,6 +511,8 @@ export default function Dashboard() {
                         <X className="h-5 w-5" />
                     </button>
                 </div>
+
+                {/* Device Tabs */}
                 <div className="flex border-b border-slate-800 shrink-0">
                     <button 
                         onClick={() => setDeviceType('iphone')}
@@ -523,7 +527,11 @@ export default function Dashboard() {
                         Android
                     </button>
                 </div>
+
+                {/* Scrollable Content */}
                 <div className="flex-1 overflow-y-auto p-6 space-y-8">
+                    
+                    {/* Step 1: The Code (Primary) */}
                     <section>
                         <div className="flex items-center gap-2 mb-3">
                             <span className="bg-blue-600 text-white text-xs font-bold px-2 py-0.5 rounded">Method 1 (Easiest)</span>
@@ -532,6 +540,7 @@ export default function Dashboard() {
                         <p className="text-sm text-slate-400 mb-4 leading-relaxed">
                             This creates a rule: "If I don't answer in 20 seconds, send the call to NessDial."
                         </p>
+                        
                         <div className="bg-black/30 p-4 rounded-xl border border-slate-700 space-y-3">
                             <div className="flex items-center gap-3">
                                 <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">1</div>
@@ -541,8 +550,10 @@ export default function Dashboard() {
                                 <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">2</div>
                                 <div className="flex-1">
                                     <p className="text-sm text-slate-300 mb-2">Type this exact code and press <strong>Call</strong>:</p>
-                                    <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-lg text-green-400 tracking-wider shadow-inner">
-                                        <span className="flex-1 truncate">
+                                    
+                                    {/* --- FONT SIZE FIX HERE --- */}
+                                    <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-xs sm:text-sm text-green-400 tracking-wider shadow-inner break-all">
+                                        <span className="flex-1">
                                             **61*{getCleanNumber()}*11*20#
                                         </span>
                                         <button 
@@ -550,7 +561,7 @@ export default function Dashboard() {
                                                 navigator.clipboard.writeText(`**61*${getCleanNumber()}*11*20#`);
                                                 alert("Code copied!");
                                             }}
-                                            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors"
+                                            className="p-2 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition-colors shrink-0"
                                         >
                                             <Copy className="h-4 w-4" />
                                         </button>
@@ -565,11 +576,14 @@ export default function Dashboard() {
                             </div>
                         </div>
                     </section>
+
+                    {/* Step 2: Manual Method (Fallback) */}
                     <section className="border-t border-slate-800 pt-6">
                         <div className="flex items-center gap-2 mb-3">
                             <span className="bg-slate-700 text-slate-200 text-xs font-bold px-2 py-0.5 rounded">Method 2 (Manual)</span>
                             <h3 className="font-bold text-white">Phone Settings</h3>
                         </div>
+                        
                         {deviceType === 'iphone' ? (
                             <div className="bg-slate-800/30 p-4 rounded-xl border border-slate-700/50 text-sm text-slate-300 space-y-2">
                                 <p className="flex gap-2"><AlertCircle className="h-4 w-4 text-yellow-500 shrink-0" /> <strong>Note:</strong> Most UK carriers hide this menu on iPhone. Use Method 1 if possible.</p>
@@ -593,6 +607,8 @@ export default function Dashboard() {
                             </div>
                         )}
                     </section>
+
+                    {/* Step 3: Test */}
                     <section className="bg-green-900/10 p-4 rounded-xl border border-green-500/20 text-center">
                         <h3 className="font-bold text-green-400 mb-2">Final Step: Test It!</h3>
                         <p className="text-sm text-green-200/70 mb-4">
@@ -605,12 +621,13 @@ export default function Dashboard() {
                             I'm All Set up
                         </button>
                     </section>
+
                 </div>
             </div>
         </div>
       )}
 
-      {/* --- SETTINGS SLIDE-OUT (UPDATED) --- */}
+      {/* --- SETTINGS SLIDE-OUT (Dark Mode) --- */}
       <div 
         className={`fixed inset-0 z-40 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isSettingsOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={() => setIsSettingsOpen(false)}
@@ -633,11 +650,11 @@ export default function Dashboard() {
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Account</h3>
               <Link href="/dashboard/profile" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <User className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">Manage details</p></div>
+                <div><p className="text-sm font-medium text-white">Profile</p><p className="text-xs text-slate-500">{user?.email}</p></div>
               </Link>
               <Link href="/dashboard/billing" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <CreditCard className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Subscription & invoices</p></div>
+                <div><p className="text-sm font-medium text-white">Billing</p><p className="text-xs text-slate-500">Manage subscription</p></div>
               </Link>
             </div>
 
