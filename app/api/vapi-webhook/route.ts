@@ -11,13 +11,13 @@ export async function POST(req: Request) {
     console.log(`📣 Vapi Event: ${message.type}`);
 
     // ==========================================
-    // 1. INCOMING CALL (Handling & Safe Guard)
+    // 1. INCOMING CALL (Inject Training Data)
     // ==========================================
     if (message.type === 'assistant-request') {
       
       const calledNumber = message.call.phoneNumberId; 
       
-      // Look up the business name AND usage stats in Supabase
+      // Look up business info + TRAINING DATA
       const { data: assistantRecord, error } = await supabaseAdmin
         .from('assistants')
         .select(`
@@ -25,6 +25,10 @@ export async function POST(req: Request) {
           user_id,
           profiles:user_id ( 
             business_name, 
+            business_description,
+            opening_hours,
+            services,
+            faqs,
             usage_minutes, 
             monthly_usage_limit 
           )
@@ -32,9 +36,9 @@ export async function POST(req: Request) {
         .eq('vapi_phone_number_id', calledNumber) 
         .single();
 
-      // Default Name if database fails
       let businessName = "Valued Customer";
-      let assistantIdToUse = "6af03c9c-2797-4818-8dfc-eb604c247f3d"; // Default Rab ID
+      let assistantIdToUse = "6af03c9c-2797-4818-8dfc-eb604c247f3d"; // Default
+      let trainingContext = "";
 
       if (!error && assistantRecord) {
         const profile = assistantRecord.profiles as any;
@@ -42,24 +46,29 @@ export async function POST(req: Request) {
         
         // --- 🛡️ MINUTE CAP SAFEGUARD ---
         const currentUsage = profile?.usage_minutes || 0;
-        const usageLimit = profile?.monthly_usage_limit || 200; // Default to 200 if not set
+        const usageLimit = profile?.monthly_usage_limit || 200;
 
         if (currentUsage >= usageLimit) {
-            console.warn(`⛔ User ${assistantRecord.user_id} has exceeded monthly limit (${currentUsage}/${usageLimit}). Call rejected.`);
-            // Returning an error here prevents Vapi from connecting the call, effectively "cutting off" the AI.
+            console.warn(`⛔ Limit Exceeded (${currentUsage}/${usageLimit}). Call rejected.`);
             return NextResponse.json({ error: "Monthly usage limit reached." }, { status: 403 });
         }
-        // -------------------------------
 
-        // Use the ID from the DB if it exists, otherwise fall back to default
+        // --- 🧠 CONSTRUCT TRAINING CONTEXT ---
+        // We build a text block to feed into the AI's system prompt
+        if (profile) {
+            if (profile.business_description) trainingContext += `\nABOUT US: ${profile.business_description}`;
+            if (profile.opening_hours) trainingContext += `\nOPENING HOURS: ${profile.opening_hours}`;
+            if (profile.services) trainingContext += `\nSERVICES & PRICING: ${profile.services}`;
+            if (profile.faqs) trainingContext += `\nFAQ / KNOWLEDGE BASE: ${profile.faqs}`;
+        }
+
         if (assistantRecord.vapi_assistant_id) {
             assistantIdToUse = assistantRecord.vapi_assistant_id;
         }
-      } else {
-        console.error('⚠️ DB Lookup Failed (Using Defaults):', error);
-      }
+      } 
       
       console.log(`✅ Injecting Name: ${businessName}`);
+      console.log(`🧠 Injecting Context Length: ${trainingContext.length} chars`);
 
       return NextResponse.json({
         assistantId: assistantIdToUse,
@@ -67,7 +76,23 @@ export async function POST(req: Request) {
           variableValues: {
             business_name: businessName,
           },
-          // 🛡️ SAFETY OVERRIDE (Preserved as requested)
+          // 💉 INJECT TRAINING DATA INTO SYSTEM PROMPT
+          model: {
+            messages: [
+              {
+                role: "system",
+                content: `You are the AI receptionist for ${businessName}. 
+                
+                HERE IS YOUR KNOWLEDGE BASE FOR THIS BUSINESS:
+                ${trainingContext}
+                
+                INSTRUCTIONS:
+                - Use the information above to answer customer questions accurately.
+                - If the answer is not in the knowledge base, ask for their details so a human can call them back.
+                - Be polite, professional, and concise.`
+              }
+            ]
+          },
           voice: {
             provider: "playht",
             voiceId: "jennifer" 
@@ -77,7 +102,7 @@ export async function POST(req: Request) {
     }
 
     // ==========================================
-    // 2. END OF CALL REPORT (Logging & Counting)
+    // 2. END OF CALL REPORT (Logging)
     // ==========================================
     if (message.type === 'end-of-call-report') {
       const call = message.call;
@@ -86,19 +111,15 @@ export async function POST(req: Request) {
       console.log(`📞 Call Ended. ID: ${call.id}`);
 
       // A. Find the User
-      const { data: assistantRecord, error: lookupError } = await supabaseAdmin
+      const { data: assistantRecord } = await supabaseAdmin
         .from('assistants')
         .select('user_id')
         .eq('vapi_assistant_id', call.assistantId) 
         .maybeSingle();
 
-      if (lookupError || !assistantRecord) {
-        console.error('❌ Could not find user for this call:', call.assistantId);
-      } else {
+      if (assistantRecord) {
         // B. Save to 'calls' table
-        const { error: insertError } = await supabaseAdmin
-          .from('calls')
-          .insert({
+        await supabaseAdmin.from('calls').insert({
             user_id: assistantRecord.user_id,
             assistant_id: call.assistantId,
             customer_number: call.customer?.number || 'Unknown',
@@ -107,40 +128,21 @@ export async function POST(req: Request) {
             summary: analysis.summary || "No summary provided.",
             recording_url: message.recordingUrl || null,
             started_at: call.startedAt || new Date().toISOString()
-          });
+        });
 
-        if (insertError) {
-          console.error('❌ Failed to save call log:', insertError);
-        } else {
-          console.log('✅ Call Log Saved Successfully');
-        }
-
-        // --- ➕ UPDATE USAGE MINUTES ---
+        // C. Update Usage
         const durationMinutes = (message.durationSeconds || 0) / 60;
+        const { data: profile } = await supabaseAdmin.from('profiles').select('usage_minutes').eq('id', assistantRecord.user_id).single();
+        const newUsage = (profile?.usage_minutes || 0) + durationMinutes;
+        await supabaseAdmin.from('profiles').update({ usage_minutes: newUsage }).eq('id', assistantRecord.user_id);
         
-        // Fetch current usage
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('usage_minutes')
-            .eq('id', assistantRecord.user_id)
-            .single();
-            
-        const currentUsage = profile?.usage_minutes || 0;
-        const newUsage = currentUsage + durationMinutes;
-
-        // Save new total
-        await supabaseAdmin
-            .from('profiles')
-            .update({ usage_minutes: newUsage })
-            .eq('id', assistantRecord.user_id);
-            
-        console.log(`⏱️ Usage Updated: +${durationMinutes.toFixed(2)} mins. New Total: ${newUsage.toFixed(2)}`);
-        // -------------------------------
+        console.log(`⏱️ Usage Updated: +${durationMinutes.toFixed(2)} mins.`);
       }
       
       return NextResponse.json({ status: 'Logged' }, { status: 200 });
     }
 
+    // Default handler for other events
     return NextResponse.json({ message: 'Handled' });
 
   } catch (error: any) {
