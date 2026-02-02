@@ -39,7 +39,6 @@ export async function POST(req: Request) {
       const agent = await agentRes.json();
 
       let systemMsg = agent.model.messages.find((m: any) => m.role === 'system')?.content || "";
-      // Naive replace - strictly speaking we should re-fetch blueprint but this preserves other edits
       systemMsg = systemMsg.replace(businessName, newName);
       
       let firstMsg = agent.firstMessage || "";
@@ -68,11 +67,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true });
     }
 
-    // --- CASE 2: UPDATE USER PHONE NUMBER (New) ---
+    // --- CASE 2: UPDATE USER PHONE NUMBER ---
     if (action === 'update_phone') {
         const newPhone = payload.phone;
-        // Just update Supabase for now. 
-        // Later we can inject this into Vapi if we want the AI to know the owner's number.
         const { error } = await supabaseAdmin
             .from('profiles')
             .update({ business_phone: newPhone })
@@ -84,7 +81,8 @@ export async function POST(req: Request) {
 
     // --- CASE 3: SWITCH VOICE ---
     if (action === 'switch_voice') {
-      const targetBlueprintId = BLUEPRINTS[payload.voiceId as keyof typeof BLUEPRINTS];
+      const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
+      const targetBlueprintId = BLUEPRINTS[voiceId];
       if (!targetBlueprintId) throw new Error('Invalid Voice ID');
 
       const bpRes = await fetch(`https://api.vapi.ai/assistant/${targetBlueprintId}`, {
@@ -134,7 +132,11 @@ export async function POST(req: Request) {
         body: JSON.stringify({ assistantId: newAssistant.id }),
       });
 
-      await supabaseAdmin.from('assistants').update({ vapi_assistant_id: newAssistant.id }).eq('id', record.id);
+      // SAVE THE ACTIVE VOICE ID TO DB SO THE WEBHOOK KNOWS WHICH PROMPT TO USE
+      await supabaseAdmin.from('assistants').update({ 
+          vapi_assistant_id: newAssistant.id,
+          active_voice_id: voiceId 
+      }).eq('id', record.id);
 
       return NextResponse.json({ success: true });
     }

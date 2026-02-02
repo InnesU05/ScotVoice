@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import twilio from 'twilio';
 
-// Initialize Twilio Client for sending SMS
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 export const dynamic = 'force-dynamic';
@@ -15,18 +14,19 @@ export async function POST(req: Request) {
     console.log(`📣 Vapi Event: ${message.type}`);
 
     // ==========================================
-    // 1. INCOMING CALL (Inject Training & Instructions)
+    // 1. INCOMING CALL (Injecting the "Perfect" Brain)
     // ==========================================
     if (message.type === 'assistant-request') {
       
       const calledNumber = message.call.phoneNumberId; 
       
-      // Look up business info + TRAINING DATA
+      // Look up business info + TRAINING DATA + ACTIVE VOICE
       const { data: assistantRecord, error } = await supabaseAdmin
         .from('assistants')
         .select(`
           vapi_assistant_id,
           user_id,
+          active_voice_id,
           profiles:user_id ( 
             business_name, 
             business_description,
@@ -42,11 +42,13 @@ export async function POST(req: Request) {
 
       let businessName = "Valued Customer";
       let assistantIdToUse = "6af03c9c-2797-4818-8dfc-eb604c247f3d"; // Default
-      let trainingContext = "";
+      let trainingContext = "No specific business details provided. Take a message.";
+      let activePersona = 'tradie'; // Default
 
       if (!error && assistantRecord) {
         const profile = assistantRecord.profiles as any;
-        businessName = profile?.business_name || "Our Business";
+        businessName = profile?.business_name || "The Business";
+        activePersona = assistantRecord.active_voice_id || 'tradie';
         
         // --- 🛡️ MINUTE CAP SAFEGUARD ---
         const currentUsage = profile?.usage_minutes || 0;
@@ -57,12 +59,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: "Monthly usage limit reached." }, { status: 403 });
         }
 
-        // --- 🧠 CONSTRUCT TRAINING CONTEXT ---
+        // --- 🧠 CONSTRUCT KNOWLEDGE BASE ---
         if (profile) {
-            if (profile.business_description) trainingContext += `\nABOUT US: ${profile.business_description}`;
-            if (profile.opening_hours) trainingContext += `\nOPENING HOURS: ${profile.opening_hours}`;
-            if (profile.services) trainingContext += `\nSERVICES & PRICING: ${profile.services}`;
-            if (profile.faqs) trainingContext += `\nFAQ / KNOWLEDGE BASE: ${profile.faqs}`;
+            trainingContext = `
+            BUSINESS NAME: ${businessName}
+            
+            ${profile.business_description ? `WHAT WE DO:\n${profile.business_description}` : ''}
+            
+            ${profile.opening_hours ? `OPENING HOURS:\n${profile.opening_hours}` : 'OPENING HOURS: Not specified. Do NOT guess.'}
+            
+            ${profile.services ? `SERVICES & PRICING:\n${profile.services}` : ''}
+            
+            ${profile.faqs ? `SPECIFIC Q&A (FAQs):\n${profile.faqs}` : ''}
+            `;
         }
 
         if (assistantRecord.vapi_assistant_id) {
@@ -70,7 +79,42 @@ export async function POST(req: Request) {
         }
       } 
       
-      console.log(`✅ Injecting Name: ${businessName}`);
+      console.log(`✅ Injecting Name: ${businessName} | Persona: ${activePersona}`);
+
+      // --- 🎭 PERSONA DEFINITIONS ---
+      const personas = {
+        'tradie': `
+            # IDENTITY
+            You are "Rab", a friendly, grounded, and no-nonsense Scottish receptionist for ${businessName}.
+            Your accent is Scottish. Your vibe is "trusted local tradesman".
+            
+            # TONE & STYLE
+            - Use natural Scottish/UK phrasing: "No bother", "I'll get that sorted", "Cheers", "Leave it with me".
+            - Be efficient but warm. Don't be rude, just be direct.
+            - Do NOT sound like a generic American robot. 
+        `,
+        'pro': `
+            # IDENTITY
+            You are "Claire", a polished, high-end executive receptionist for ${businessName}.
+            Your vibe is "corporate professional".
+            
+            # TONE & STYLE
+            - Use formal, polite phrasing: "Certainly", "One moment please", "I would be happy to help with that".
+            - Be calm, reassuring, and precise.
+            - Never use slang.
+        `,
+        'coach': `
+            # IDENTITY
+            You are "Calum", an energetic and motivational front-desk assistant for ${businessName}.
+            Your vibe is "personal trainer / dynamic creative".
+            
+            # TONE & STYLE
+            - Use upbeat, high-energy phrasing: "Brilliant", "Let's get this sorted", "No worries at all", "100%".
+            - Be enthusiastic but efficient. Keep the momentum going.
+        `
+      };
+
+      const selectedPersonaPrompt = personas[activePersona as keyof typeof personas] || personas['tradie'];
 
       return NextResponse.json({
         assistantId: assistantIdToUse,
@@ -78,30 +122,49 @@ export async function POST(req: Request) {
           variableValues: {
             business_name: businessName,
           },
-          // 💉 INJECT TRAINING DATA + RECORDING INSTRUCTION
+          // 🧠 MODEL CONFIGURATION (Smartest Available)
           model: {
+            provider: "openai",
+            model: "gpt-4o",
+            temperature: 0.2, // Low temp = Strict adherence to facts
+            // 💉 THE "PERFECT" SYSTEM PROMPT
             messages: [
               {
                 role: "system",
-                content: `You are the AI receptionist for ${businessName}. 
+                content: `
+                ${selectedPersonaPrompt}
                 
-                IMPORTANT LEGAL NOTICE: 
-                This call IS being recorded for quality and business purposes. If the caller asks if they are being recorded, you MUST say "Yes, this call is being recorded." Do not lie.
-
-                HERE IS YOUR KNOWLEDGE BASE FOR THIS BUSINESS:
+                # YOUR GOAL
+                Answer calls, answer basic questions using ONLY the Knowledge Base below, and take detailed messages for the boss.
+                
+                # KNOWLEDGE BASE (THE ONLY TRUTH)
                 ${trainingContext}
-                
-                INSTRUCTIONS:
-                - Use the information above to answer customer questions accurately.
-                - If the answer is not in the knowledge base, ask for their details so a human can call them back.
-                - Be polite, professional, and concise.`
+
+                # CRITICAL RULES (DO NOT BREAK)
+                1. **NO HALLUCINATIONS:** You are an interface to the database above. If the answer is not there, SAY "I don't have that specific information right now." Do NOT make up opening hours (like 9-5) if they aren't listed.
+                2. **DIARY CHECK:** If asked for a specific time/date (e.g., "Can you do Tuesday?"), say: "I don't have access to the live diary, but I'll grab your details and get the team to call you back to confirm."
+                3. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
+                4. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
+                5. **CURRENT TIME:** The current time is ${new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' })}. Use this to know if "today" is a weekday.
+
+                # CONVERSATION FLOW
+                1. Greeting: "Hi, thanks for calling ${businessName}, this is [Your Name]. How can I help?"
+                2. Filter: If SPAM/SALES -> "Not interested, thanks" -> Hang up.
+                3. Lead: Get Name, Phone, and Job Details.
+                4. Closing: "Thanks [Name], I've sent that info to the boss. Expect a call back shortly. [Sign off phrase based on persona]!"
+                `
               }
             ]
           },
-          voice: {
-            provider: "playht",
-            voiceId: "jennifer" 
+          // 🎤 VOICE SETTINGS
+          transcriber: {
+            provider: "deepgram",
+            model: "nova-2",
+            language: "en-GB",
+            endpointing: 300
           }
+          // NOTE: We REMOVED the 'voice' override here. 
+          // This allows the Vapi Assistant (configured by update-agent) to use its own trained voice (Male for Rab/Calum, Female for Claire).
         }
       });
     }
@@ -116,7 +179,6 @@ export async function POST(req: Request) {
       
       console.log(`📞 Call Ended. ID: ${call.id}`);
 
-      // A. Find the User
       const { data: assistantRecord } = await supabaseAdmin
         .from('assistants')
         .select(`
@@ -133,7 +195,7 @@ export async function POST(req: Request) {
         const userId = assistantRecord.user_id;
         const profile = assistantRecord.profiles as any;
 
-        // B. Save to 'calls' table
+        // Save Call
         await supabaseAdmin.from('calls').insert({
             user_id: userId,
             assistant_id: call.assistantId,
@@ -145,7 +207,7 @@ export async function POST(req: Request) {
             started_at: call.startedAt || new Date().toISOString()
         });
 
-        // C. Update Usage
+        // Update Usage
         const durationMinutes = (message.durationSeconds || 0) / 60;
         const newUsage = (profile?.usage_minutes || 0) + durationMinutes;
         
@@ -156,14 +218,12 @@ export async function POST(req: Request) {
         
         console.log(`⏱️ Usage Updated: +${durationMinutes.toFixed(2)} mins.`);
 
-        // D. SEND SMS TO BUSINESS OWNER (Text the Boss)
+        // SEND SMS
         if (profile?.business_phone && analysis.summary) {
             try {
-                // Ensure number format is correct (Twilio needs E.164, e.g. +447...)
-                // We assume user entered it correctly or we rely on Twilio's lenient formatting for UK numbers
                 await twilioClient.messages.create({
                     body: `NessDial Alert 📞\nCall from: ${customerNumber}\n\nSummary: ${analysis.summary}`,
-                    from: process.env.TWILIO_PHONE_NUMBER, // Your main Twilio number (the "sender")
+                    from: process.env.TWILIO_PHONE_NUMBER,
                     to: profile.business_phone
                 });
                 console.log(`📲 SMS Sent to ${profile.business_phone}`);
@@ -172,11 +232,9 @@ export async function POST(req: Request) {
             }
         }
       }
-      
       return NextResponse.json({ status: 'Logged' }, { status: 200 });
     }
 
-    // Default handler for other events
     return NextResponse.json({ message: 'Handled' });
 
   } catch (error: any) {
