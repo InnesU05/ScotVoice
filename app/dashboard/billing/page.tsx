@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2, Mail } from 'lucide-react';
 
 export default function BillingPage() {
   const router = useRouter();
@@ -26,7 +26,8 @@ export default function BillingPage() {
       if (data.url) {
         window.location.href = data.url; // Redirect to Stripe
       } else {
-        alert(data.error || "Could not load billing portal.");
+        // If we get the "No active subscription" error, we show a helpful alert
+        alert(data.error || "Could not load billing portal. If you haven't subscribed yet, please go through checkout.");
       }
     } catch (err) {
       alert("Failed to load billing portal.");
@@ -51,7 +52,7 @@ export default function BillingPage() {
           
           <div className="relative z-10">
             <span className="bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-full border border-green-500/30">ACTIVE</span>
-            <h2 className="text-2xl font-bold text-white mt-4">Pro Plan</h2>
+            <h2 className="text-2xl font-bold text-white mt-4">NessDial Subscription</h2>
             <p className="text-slate-400 text-sm mt-1">£20.00 / month</p>
             
             <div className="mt-6 space-y-2">
@@ -62,7 +63,7 @@ export default function BillingPage() {
                 <CheckCircle className="h-4 w-4 text-blue-400" /> All Personas (Rab, Claire, Calum)
               </div>
               <div className="flex items-center gap-2 text-sm text-slate-300">
-                <CheckCircle className="h-4 w-4 text-blue-400" /> 24/7 Support
+                <Mail className="h-4 w-4 text-blue-400" /> Email Support
               </div>
             </div>
           </div>

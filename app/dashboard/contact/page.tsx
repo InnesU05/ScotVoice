@@ -1,17 +1,46 @@
 'use client';
 
 import { useState } from 'react';
+import { supabase } from '@/lib/supabase'; // Import Supabase
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Send, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Send, Loader2 } from 'lucide-react'; // Added Loader2
 
 export default function ContactPage() {
   const router = useRouter();
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false); // Loading state
+  
+  // Form State
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSent(true);
-    // Here you would connect to an API to send the email
+    setLoading(true);
+
+    try {
+      // 1. Get Current User
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not logged in');
+
+      // 2. Insert into Supabase
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert({
+          user_id: user.id,
+          subject,
+          message
+        });
+
+      if (error) throw error;
+
+      // 3. Success!
+      setSent(true);
+    } catch (err) {
+      alert('Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -38,16 +67,34 @@ export default function ContactPage() {
             <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Subject</label>
-                <input type="text" required className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none" placeholder="e.g. Issue with my number" />
+                <input 
+                  type="text" 
+                  required 
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none" 
+                  placeholder="e.g. Issue with my number" 
+                />
               </div>
               <div>
                 <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Message</label>
-                <textarea required rows={5} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none resize-none" placeholder="Describe your issue..." />
+                <textarea 
+                  required 
+                  rows={5} 
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none resize-none" 
+                  placeholder="Describe your issue..." 
+                />
               </div>
             </div>
 
-            <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all">
-              <Send className="h-5 w-5" /> Send Message
+            <button 
+              type="submit" 
+              disabled={loading}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 transition-all"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Send className="h-5 w-5" /> Send Message</>}
             </button>
           </form>
         )}
