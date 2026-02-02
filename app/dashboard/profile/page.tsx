@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Save, User, Mail, Smartphone, Building2, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, User, Mail, Smartphone, Building2, Loader2, Lock, KeyRound } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -11,11 +11,16 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [user, setUser] = useState<any>(null);
   
+  // Profile Data
   const [formData, setFormData] = useState({
     email: '',
     business_name: '',
     business_phone: ''
   });
+
+  // Password Data
+  const [newPassword, setNewPassword] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -41,8 +46,10 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setResetMessage('');
     try {
-      const { error } = await supabase
+      // 1. Update Profile Data
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           business_name: formData.business_name,
@@ -50,14 +57,38 @@ export default function ProfilePage() {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
-      alert('Profile updated successfully!');
-    } catch (err) {
-      alert('Failed to update profile.');
+      if (profileError) throw profileError;
+
+      // 2. Update Password (if entered)
+      if (newPassword) {
+        const { error: passwordError } = await supabase.auth.updateUser({
+            password: newPassword
+        });
+        if (passwordError) throw passwordError;
+        setNewPassword(''); // Clear field on success
+        setResetMessage('Profile and Password updated successfully!');
+      } else {
+        setResetMessage('Profile updated successfully!');
+      }
+
+    } catch (err: any) {
+      alert(`Failed: ${err.message}`);
     } finally {
       setSaving(false);
     }
   };
+
+  const handleSendResetEmail = async () => {
+      try {
+          const { error } = await supabase.auth.resetPasswordForEmail(formData.email, {
+            redirectTo: `${window.location.origin}/dashboard/profile`,
+          });
+          if(error) throw error;
+          alert('Reset email sent! Please check your inbox.');
+      } catch (err: any) {
+          alert(err.message);
+      }
+  }
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-blue-500" /></div>;
 
@@ -71,6 +102,7 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-white mb-8">Your Profile</h1>
 
         <div className="space-y-6">
+          {/* Main Info */}
           <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
             
             <div>
@@ -110,6 +142,46 @@ export default function ProfilePage() {
             </div>
 
           </div>
+
+          {/* Security & Password */}
+          <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4">
+             <div className="flex items-center gap-2 mb-2">
+                <Lock className="h-4 w-4 text-slate-500" />
+                <label className="text-xs font-bold text-slate-500 uppercase block">Security</label>
+             </div>
+
+             <div>
+                <label className="text-xs font-bold text-slate-400 mb-2 block">Change Password</label>
+                <div className="flex items-center gap-3 bg-slate-950 px-3 rounded-xl border border-slate-800 focus-within:border-green-500 transition-colors">
+                    <KeyRound className="h-4 w-4 text-green-500" />
+                    <input 
+                    type="password" 
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    className="bg-transparent py-3 w-full outline-none text-white placeholder-slate-600"
+                    placeholder="Enter new password to update"
+                    />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-2">
+                    Note: For security reasons, your current password cannot be viewed, only changed.
+                </p>
+             </div>
+
+             <div className="pt-2 border-t border-slate-800">
+                 <button 
+                    onClick={handleSendResetEmail}
+                    className="text-xs text-blue-400 hover:text-blue-300 font-medium flex items-center gap-1"
+                 >
+                    Forgot Password? Send me a reset email
+                 </button>
+             </div>
+          </div>
+
+          {resetMessage && (
+              <div className="p-3 bg-green-500/10 border border-green-500/20 text-green-400 text-sm rounded-xl text-center">
+                  {resetMessage}
+              </div>
+          )}
 
           <button 
             onClick={handleSave}

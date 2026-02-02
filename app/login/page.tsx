@@ -2,7 +2,7 @@
 import { useState, Suspense } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Phone, Loader2, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Loader2, ArrowLeft, CheckCircle2, KeyRound } from 'lucide-react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -15,6 +15,7 @@ function LoginContent() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(defaultToSignup);
+  const [isForgotPassword, setIsForgotPassword] = useState(false); // New state
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
@@ -25,18 +26,26 @@ function LoginContent() {
     setMessage('');
 
     try {
-      if (isSignUp) {
+      if (isForgotPassword) {
+        // --- FORGOT PASSWORD FLOW ---
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}/dashboard/profile`, // Redirects them to profile to set new pass
+        });
+        if (error) throw error;
+        setMessage('✅ Password reset link sent! Check your email.');
+        
+      } else if (isSignUp) {
         // --- SIGN UP FLOW ---
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: `${location.origin}/onboarding` } // Redirect to Onboarding
+          options: { emailRedirectTo: `${location.origin}/onboarding` }
         });
         
         if (error) throw error;
 
         if (data.session) {
-          router.push('/onboarding'); // <--- FIXED: Send to Onboarding Wizard
+          router.push('/onboarding');
         } else {
           setMessage('✅ Check your email to confirm your account!');
         }
@@ -45,7 +54,7 @@ function LoginContent() {
         // --- SIGN IN FLOW ---
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        router.push('/dashboard'); // Existing users go to Dashboard
+        router.push('/dashboard');
       }
     } catch (err: any) {
       setError(err.message);
@@ -66,14 +75,13 @@ function LoginContent() {
         </Link>
 
         <div className="text-center mb-8">
-           {/* 🚨 LOGO REPLACEMENT HERE */}
            <img src="/logo.png" alt="NessDial" className="w-14 h-14 rounded-2xl mx-auto mb-5 shadow-lg shadow-blue-600/30" />
            
            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-             {isSignUp ? 'Join NessDial' : 'Welcome Back'}
+             {isForgotPassword ? 'Reset Password' : (isSignUp ? 'Join NessDial' : 'Welcome Back')}
            </h1>
            <p className="text-slate-500 mt-2 text-lg">
-             {isSignUp ? 'Automate your admin in minutes.' : 'Sign in to your dashboard.'}
+             {isForgotPassword ? 'Enter your email to receive a reset link.' : (isSignUp ? 'Automate your admin in minutes.' : 'Sign in to your dashboard.')}
            </p>
         </div>
 
@@ -88,17 +96,31 @@ function LoginContent() {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div>
-             <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
-            <input
-              type="password"
-              placeholder="••••••••"
-              required
-              minLength={6}
-              className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          
+          {!isForgotPassword && (
+            <div>
+               <div className="flex justify-between items-center mb-2">
+                 <label className="block text-sm font-semibold text-slate-700">Password</label>
+                 {!isSignUp && (
+                   <button 
+                     type="button" 
+                     onClick={() => { setIsForgotPassword(true); setError(''); setMessage(''); }}
+                     className="text-xs font-bold text-blue-600 hover:underline"
+                   >
+                     Forgot?
+                   </button>
+                 )}
+               </div>
+              <input
+                type="password"
+                placeholder="••••••••"
+                required={!isForgotPassword}
+                minLength={6}
+                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition font-medium text-slate-900"
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+          )}
 
           {error && (
             <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2 border border-red-100">
@@ -117,16 +139,26 @@ function LoginContent() {
             disabled={loading}
             className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition shadow-lg hover:shadow-blue-600/20 flex items-center justify-center transform active:scale-[0.98]"
           >
-            {loading ? <Loader2 className="animate-spin" /> : (isSignUp ? 'Create Account' : 'Sign In')}
+            {loading ? <Loader2 className="animate-spin" /> : (
+                isForgotPassword ? 'Send Reset Link' : (isSignUp ? 'Create Account' : 'Sign In')
+            )}
           </button>
         </form>
 
         <div className="mt-8 text-center pt-6 border-t border-slate-100">
           <button 
-            onClick={() => { setIsSignUp(!isSignUp); setError(''); setMessage(''); }}
+            onClick={() => { 
+                if(isForgotPassword) {
+                    setIsForgotPassword(false);
+                } else {
+                    setIsSignUp(!isSignUp); 
+                }
+                setError(''); 
+                setMessage(''); 
+            }}
             className="text-slate-500 hover:text-slate-900 text-sm font-medium transition"
           >
-            {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            {isForgotPassword ? 'Back to Sign In' : (isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up")}
           </button>
         </div>
       </div>
@@ -140,7 +172,6 @@ function LoginContent() {
 export default function Login() {
   return (
     <main className="min-h-screen relative flex items-center justify-center p-4 overflow-hidden bg-slate-900">
-      {/* Background Effects */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full -z-10">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-blue-600/30 rounded-full blur-3xl mix-blend-screen opacity-50 animate-pulse"></div>
         <div className="absolute bottom-[-10%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-3xl mix-blend-screen opacity-50"></div>
