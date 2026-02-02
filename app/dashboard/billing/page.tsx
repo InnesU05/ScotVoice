@@ -1,10 +1,39 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, CreditCard, CheckCircle, ExternalLink } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { ArrowLeft, CreditCard, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
 
 export default function BillingPage() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Not logged in");
+
+      const res = await fetch('/api/portal', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`
+        }
+      });
+
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url; // Redirect to Stripe
+      } else {
+        alert(data.error || "Could not load billing portal.");
+      }
+    } catch (err) {
+      alert("Failed to load billing portal.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-200 font-sans p-4 pb-20">
@@ -23,7 +52,7 @@ export default function BillingPage() {
           <div className="relative z-10">
             <span className="bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-full border border-green-500/30">ACTIVE</span>
             <h2 className="text-2xl font-bold text-white mt-4">Pro Plan</h2>
-            <p className="text-slate-400 text-sm mt-1">£25.00 / month</p>
+            <p className="text-slate-400 text-sm mt-1">£20.00 / month</p>
             
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-300">
@@ -41,10 +70,11 @@ export default function BillingPage() {
 
         <div className="mt-6">
           <button 
+            disabled={loading}
+            onClick={handleManageSubscription}
             className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl border border-slate-700 flex items-center justify-center gap-2 transition-all"
-            onClick={() => alert('This would open the Stripe Customer Portal.')}
           >
-            Manage Subscription <ExternalLink className="h-4 w-4" />
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <><ExternalLink className="h-4 w-4" /> Manage Subscription</>}
           </button>
           <p className="text-center text-xs text-slate-500 mt-4">
             Payments are securely processed by Stripe.

@@ -496,7 +496,7 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {/* --- FULL SETUP WIZARD --- */}
+      {/* --- FULL SETUP WIZARD (Unchanged) --- */}
       {isSetupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
@@ -551,7 +551,6 @@ export default function Dashboard() {
                                 <div className="flex-1">
                                     <p className="text-sm text-slate-300 mb-2">Type this exact code and press <strong>Call</strong>:</p>
                                     
-                                    {/* --- FONT SIZE FIX HERE --- */}
                                     <div className="flex items-center gap-2 bg-slate-950 p-3 rounded-lg border border-slate-700/50 font-mono text-xs sm:text-sm text-green-400 tracking-wider shadow-inner break-all">
                                         <span className="flex-1">
                                             **61*{getCleanNumber()}*11*20#
@@ -673,7 +672,13 @@ export default function Dashboard() {
 
           </div>
 
-          <div className="border-t border-slate-800 p-6">
+          <div className="border-t border-slate-800 p-6 space-y-4">
+            {/* Legal Links */}
+            <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-medium">
+                <Link href="/terms" className="hover:text-slate-400 transition-colors">Terms of Service</Link>
+                <Link href="/privacy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link>
+            </div>
+
             <button 
               onClick={handleSignOut}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
