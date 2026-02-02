@@ -7,7 +7,8 @@ import Link from 'next/link';
 import { 
   Settings, Phone, Edit2, Check, LogOut, Loader2, X, 
   User, CreditCard, RefreshCw, Play, Pause, Calendar, Clock,
-  ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone
+  ChevronDown, ChevronUp, BrainCircuit, ChevronRight, Smartphone,
+  HelpCircle, Copy // Added these icons
 } from 'lucide-react';
 
 // --- CUSTOM AUDIO PLAYER COMPONENT ---
@@ -109,6 +110,10 @@ export default function Dashboard() {
   const [updating, setUpdating] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  // Setup Guide State
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [deviceType, setDeviceType] = useState<'iphone' | 'android'>('iphone');
+
   // Collapsible States
   const [isPersonaOpen, setIsPersonaOpen] = useState(false);
   const [isActivityOpen, setIsActivityOpen] = useState(false);
@@ -117,14 +122,14 @@ export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [assistantData, setAssistantData] = useState<any>(null);
   const [businessName, setBusinessName] = useState("");
-  const [userPhone, setUserPhone] = useState(""); // New State
+  const [userPhone, setUserPhone] = useState("");
   const [calls, setCalls] = useState<any[]>([]);
   
   // UI State
   const [isEditingName, setIsEditingName] = useState(false);
-  const [isEditingPhone, setIsEditingPhone] = useState(false); // New State
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
   const [newNameInput, setNewNameInput] = useState("");
-  const [newPhoneInput, setNewPhoneInput] = useState(""); // New State
+  const [newPhoneInput, setNewPhoneInput] = useState("");
   const [selectedVoice, setSelectedVoice] = useState("tradie");
 
   useEffect(() => {
@@ -133,13 +138,7 @@ export default function Dashboard() {
       if (!user) { router.push('/login'); return; }
       setUser(user);
 
-      // Fetch Profile (Name + Phone)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_name, business_phone')
-        .eq('id', user.id)
-        .single();
-
+      const { data: profile } = await supabase.from('profiles').select('business_name, business_phone').eq('id', user.id).single();
       if (profile) {
         setBusinessName(profile.business_name || "");
         setNewNameInput(profile.business_name || "");
@@ -211,6 +210,13 @@ export default function Dashboard() {
     }
   };
 
+  // Helper for cleaning number for the GSM code
+  const getCleanNumber = () => {
+    const raw = assistantData?.twilio_phone_number || "";
+    // Remove spaces, dashes, parentheses
+    return raw.replace(/[^0-9+]/g, '');
+  };
+
   if (loading) return (
     <div className="flex h-screen w-full items-center justify-center bg-[#020617]">
       <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
@@ -269,20 +275,29 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* AI NUMBER BOX */}
-            <div className="flex items-center gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
-              <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
-                <Phone className="h-5 w-5" />
+            {/* AI NUMBER BOX (UPDATED WITH CONNECT BUTTON) */}
+            <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400">
+                  <Phone className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400 font-medium">Your AI Number</p>
+                  <p className="text-lg font-mono font-semibold text-white tracking-wide">
+                    {assistantData?.twilio_phone_number || "Provisioning..."}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-slate-400 font-medium">Your AI Number</p>
-                <p className="text-lg font-mono font-semibold text-white tracking-wide">
-                  {assistantData?.twilio_phone_number || "Provisioning..."}
-                </p>
-              </div>
+              <button 
+                onClick={() => setIsSetupOpen(true)}
+                className="flex items-center gap-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 text-xs font-bold rounded-xl transition-colors border border-blue-600/30 shadow-sm"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                Connect
+              </button>
             </div>
 
-            {/* USER PHONE BOX (NEW) */}
+            {/* USER PHONE BOX */}
             <div className="flex items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <div className="flex items-center gap-4 w-full">
                 <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400">
@@ -481,6 +496,101 @@ export default function Dashboard() {
           )}
         </div>
       </main>
+
+      {/* --- SETUP GUIDE MODAL --- */}
+      {isSetupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl relative">
+                
+                {/* Modal Header */}
+                <div className="p-6 border-b border-slate-800 flex justify-between items-center bg-slate-950/50">
+                    <h2 className="text-xl font-bold text-white">Connect Calls</h2>
+                    <button onClick={() => setIsSetupOpen(false)} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
+
+                {/* Device Tabs */}
+                <div className="flex border-b border-slate-800">
+                    <button 
+                        onClick={() => setDeviceType('iphone')}
+                        className={`flex-1 py-4 text-sm font-bold text-center transition-colors ${deviceType === 'iphone' ? 'bg-slate-800 text-white border-b-2 border-blue-500' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                    >
+                        iPhone
+                    </button>
+                    <button 
+                        onClick={() => setDeviceType('android')}
+                        className={`flex-1 py-4 text-sm font-bold text-center transition-colors ${deviceType === 'android' ? 'bg-slate-800 text-white border-b-2 border-green-500' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900'}`}
+                    >
+                        Android
+                    </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 space-y-6">
+                    
+                    <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/20">
+                        <p className="text-sm text-blue-200 leading-relaxed">
+                            To let the AI answer when you're busy, you need to enable <strong>Conditional Call Forwarding</strong>.
+                        </p>
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-start gap-4">
+                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">1</div>
+                            <div>
+                                <p className="text-slate-300 text-sm font-medium mb-1">Open your Phone Keypad</p>
+                                <p className="text-slate-500 text-xs">The app where you normally dial numbers.</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4">
+                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">2</div>
+                            <div className="w-full">
+                                <p className="text-slate-300 text-sm font-medium mb-2">Dial this exact code:</p>
+                                <div className="flex items-center gap-2 bg-black/50 p-3 rounded-xl border border-slate-700 font-mono text-lg text-green-400 tracking-wider shadow-inner">
+                                    <span className="flex-1 truncate">
+                                        **61*{getCleanNumber()}*11*20#
+                                    </span>
+                                    <button 
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(`**61*${getCleanNumber()}*11*20#`);
+                                            alert("Code copied to clipboard!");
+                                        }}
+                                        className="p-2 hover:bg-slate-700 rounded-lg text-slate-400 hover:text-white transition-colors"
+                                    >
+                                        <Copy className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">
+                                    This sets a <strong>20 second</strong> ring delay before forwarding.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-start gap-4">
+                            <div className="h-8 w-8 bg-slate-800 rounded-full flex items-center justify-center text-white font-bold shrink-0 border border-slate-700">3</div>
+                            <div>
+                                <p className="text-slate-300 text-sm font-medium mb-1">Press the Call Button</p>
+                                <p className="text-slate-500 text-xs leading-relaxed">
+                                    {deviceType === 'iphone' 
+                                        ? "A grey screen will flash saying 'Setting Registration Succeeded'. Click Dismiss." 
+                                        : "You will see a pop-up confirmation saying 'Call forwarding registered successfully'."}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button 
+                        onClick={() => setIsSetupOpen(false)}
+                        className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-colors border border-slate-700"
+                    >
+                        Done
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* --- SETTINGS SLIDE-OUT (Dark Mode) --- */}
       <div 
