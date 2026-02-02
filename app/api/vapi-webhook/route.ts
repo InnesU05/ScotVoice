@@ -42,7 +42,6 @@ export async function POST(req: Request) {
 
         // ✅ WE RETURN THE ID. 
         // This tells Vapi: "Go ahead and use the Assistant I already set up in your dashboard."
-        // (The one we updated in Step 2 with all the training data).
         return NextResponse.json({ assistantId: assistantRecord.vapi_assistant_id });
       }
 
@@ -83,15 +82,22 @@ export async function POST(req: Request) {
         const durationMinutes = (message.durationSeconds || 0) / 60;
         await supabaseAdmin.from('profiles').update({ usage_minutes: (profile?.usage_minutes || 0) + durationMinutes }).eq('id', userId);
         
-        // Send SMS
+        // --- SEND SMS (RESTORED & VERIFIED) ---
         if (profile?.business_phone && analysis.summary) {
             try {
-                await twilioClient.messages.create({
+                console.log(`📨 Attempting SMS to ${profile.business_phone}...`);
+                const sms = await twilioClient.messages.create({
                     body: `NessDial Alert 📞\nCall from: ${customerNumber}\n\nSummary: ${analysis.summary}`,
                     from: process.env.TWILIO_PHONE_NUMBER,
                     to: profile.business_phone
                 });
-            } catch (e) { console.error(e); }
+                console.log(`✅ SMS Sent! SID: ${sms.sid}`);
+            } catch (smsError: any) {
+                console.error("❌ SMS Failed:", smsError?.message || smsError);
+            }
+        } else {
+            console.warn("⚠️ SMS Skipped: Missing phone number or summary.");
+            console.log(`Phone: ${profile?.business_phone ? 'Present' : 'Missing'}, Summary: ${analysis.summary ? 'Present' : 'Missing'}`);
         }
       }
       return NextResponse.json({ status: 'Logged' }, { status: 200 });
