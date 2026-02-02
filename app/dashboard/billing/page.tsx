@@ -53,7 +53,7 @@ export default function BillingPage() {
           <div className="relative z-10">
             <span className="bg-green-500/20 text-green-400 text-xs font-bold px-3 py-1 rounded-full border border-green-500/30">ACTIVE</span>
             <h2 className="text-2xl font-bold text-white mt-4">NessDial Subscription</h2>
-            <p className="text-slate-400 text-sm mt-1">£20.00 / month</p>
+            <p className="text-slate-400 text-sm mt-1">£29.99 / month</p>
             
             <div className="mt-6 space-y-2">
               <div className="flex items-center gap-2 text-sm text-slate-300">

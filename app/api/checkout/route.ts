@@ -44,7 +44,7 @@ export async function POST(req: Request) {
               name: 'NessDial AI Receptionist',
               description: `Monthly Subscription (Voice: ${voiceId.toUpperCase()})`,
             },
-            unit_amount: 2000, // £20.00
+            unit_amount: 2999, // £29.99
             recurring: {
               interval: 'month',
             },
