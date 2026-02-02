@@ -14,85 +14,76 @@ export async function POST(req: Request) {
     console.log(`📣 Vapi Event: ${message.type}`);
 
     // ==========================================
-    // 1. INCOMING CALL (Injecting the "Knowledge-First" Brain)
+    // 1. INCOMING CALL (The "Brain" Injection)
     // ==========================================
     if (message.type === 'assistant-request') {
       
       const calledNumber = message.call.phoneNumberId; 
+      console.log(`📞 Incoming Call to: ${calledNumber}`);
       
-      // Look up business info + TRAINING DATA + ACTIVE VOICE
-      const { data: assistantRecord, error } = await supabaseAdmin
+      // A. FIND THE ASSISTANT (Step 1)
+      const { data: assistantRecord, error: assistantError } = await supabaseAdmin
         .from('assistants')
-        .select(`
-          vapi_assistant_id,
-          user_id,
-          active_voice_id,
-          profiles:user_id ( 
-            business_name, 
-            business_description,
-            opening_hours,
-            services,
-            faqs,
-            usage_minutes, 
-            monthly_usage_limit 
-          )
-        `)
+        .select('user_id, active_voice_id, vapi_assistant_id')
         .eq('vapi_phone_number_id', calledNumber) 
         .single();
 
-      let businessName = "Valued Customer";
-      let assistantIdToUse: string | null = null; 
-      let activePersona = 'tradie'; 
+      if (assistantError || !assistantRecord) {
+          console.error("🚨 CRITICAL: Could not find Assistant for this number:", calledNumber);
+          // Return empty to let Vapi use default behavior (better than crashing)
+          return NextResponse.json({ assistantId: null }); 
+      }
+
+      const userId = assistantRecord.user_id;
+      const activePersona = assistantRecord.active_voice_id || 'tradie';
+
+      // B. FIND THE PROFILE & TRAINING DATA (Step 2 - Separate Query is Safer)
+      const { data: profile, error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .select('*') // Get everything including new training columns
+        .eq('id', userId)
+        .single();
+
+      if (profileError) {
+          console.error("🚨 Error fetching profile:", profileError);
+      }
+
+      // C. PREPARE THE DATA
+      const businessName = profile?.business_name || "The Business";
       
-      // Default Context (Empty)
-      let trainingContext = "No specific business details provided. Please take a detailed message.";
+      // --- 🛡️ MINUTE CAP SAFEGUARD ---
+      const currentUsage = profile?.usage_minutes || 0;
+      const usageLimit = profile?.monthly_usage_limit || 200;
 
-      if (!error && assistantRecord) {
-        const profile = assistantRecord.profiles as any;
-        businessName = profile?.business_name || "The Business";
-        activePersona = assistantRecord.active_voice_id || 'tradie';
-        
-        // --- 🛡️ MINUTE CAP SAFEGUARD ---
-        const currentUsage = profile?.usage_minutes || 0;
-        const usageLimit = profile?.monthly_usage_limit || 200;
+      if (currentUsage >= usageLimit) {
+          console.warn(`⛔ Limit Exceeded (${currentUsage}/${usageLimit}). Call rejected.`);
+          return NextResponse.json({ error: "Monthly usage limit reached." }, { status: 403 });
+      }
 
-        if (currentUsage >= usageLimit) {
-            console.warn(`⛔ Limit Exceeded (${currentUsage}/${usageLimit}). Call rejected.`);
-            return NextResponse.json({ error: "Monthly usage limit reached." }, { status: 403 });
-        }
-
-        // --- 🧠 CONSTRUCT KNOWLEDGE BASE (Aggressive Injection) ---
-        // We structure this as a clear "Fact Sheet" for the AI
-        if (profile) {
-            trainingContext = `
-            === 🟢 APPROVED BUSINESS KNOWLEDGE BASE 🟢 ===
-            (You MUST use this information to answer customer questions)
-
-            📍 BUSINESS NAME: ${businessName}
-            
-            📝 WHAT WE DO:
-            ${profile.business_description || "General inquiries."}
-            
-            🕒 OPENING HOURS:
-            ${profile.opening_hours || "Not specified. (If asked, say: 'I don't have the specific hours in front of me, but I can get the boss to confirm.')"}
-            
-            💰 SERVICES & PRICING:
-            ${profile.services || "Pricing is available on request."}
-            
-            ❓ FREQUENTLY ASKED QUESTIONS (Q&A):
-            ${profile.faqs || "No specific FAQs provided."}
-            
-            === 🔴 END OF KNOWLEDGE BASE 🔴 ===
-            `;
-        }
-
-        if (assistantRecord.vapi_assistant_id) {
-            assistantIdToUse = assistantRecord.vapi_assistant_id;
-        }
-      } 
+      // --- 🧠 CONSTRUCT KNOWLEDGE BASE ---
+      // This is the "God Prompt" that overrides everything.
+      const trainingContext = `
+      === 🟢 BUSINESS KNOWLEDGE BASE (SOURCE OF TRUTH) 🟢 ===
       
-      console.log(`✅ Injecting Name: ${businessName} | Persona: ${activePersona}`);
-      console.log(`🧠 Context Length: ${trainingContext.length} chars`);
+      📍 BUSINESS NAME: ${businessName}
+      
+      📝 DESCRIPTION:
+      ${profile?.business_description || "Not specified."}
+      
+      🕒 OPENING HOURS:
+      ${profile?.opening_hours || "Not specified. If asked, say: 'I don't have the calendar in front of me, but I can get the boss to call you back.'"}
+      
+      💰 SERVICES & PRICING:
+      ${profile?.services || "Not specified. Say: 'I can get the team to provide a quote.'"}
+      
+      ❓ FAQs (Specific Answers):
+      ${profile?.faqs || "None."}
+      
+      === 🔴 END OF KNOWLEDGE BASE 🔴 ===
+      `;
+
+      console.log(`✅ Loaded Profile for: ${businessName}`);
+      console.log(`🧠 Training Data Length: ${trainingContext.length} chars`);
 
       // --- 🎭 PERSONA DEFINITIONS ---
       const personas = {
@@ -100,36 +91,30 @@ export async function POST(req: Request) {
             # IDENTITY
             You are "Rab", a friendly, warm, and helpful Scottish receptionist for ${businessName}.
             Your accent is Scottish. Your vibe is "trusted local helper".
-            
-            # TONE & STYLE
-            - **Friendly & Polite:** You are happy to help. Never rude.
-            - **Phrasing:** Use natural Scottish/UK phrasing: "No bother at all", "I'll get that sorted for you", "Cheers", "Leave it with me".
-            - **Professional:** Casual but respectful.
+            - **Phrasing:** "No bother at all", "I'll get that sorted", "Cheers".
         `,
         'pro': `
             # IDENTITY
             You are "Claire", a polished, high-end executive receptionist for ${businessName}.
             Your vibe is "corporate professional".
-            
-            # TONE & STYLE
-            - Use formal, polite phrasing: "Certainly", "One moment please", "I would be happy to help with that".
-            - Be calm, reassuring, and precise.
+            - **Phrasing:** "Certainly", "One moment please", "I would be happy to help".
         `,
         'coach': `
             # IDENTITY
             You are "Calum", an energetic and motivational front-desk assistant for ${businessName}.
             Your vibe is "personal trainer / dynamic creative".
-            
-            # TONE & STYLE
-            - Use upbeat, high-energy phrasing: "Brilliant", "Let's get this sorted", "No worries at all", "100%".
-            - Be enthusiastic but efficient.
+            - **Phrasing:** "Brilliant", "Let's get this sorted", "100%".
         `
       };
 
       const selectedPersonaPrompt = personas[activePersona as keyof typeof personas] || personas['tradie'];
 
-      // --- CONSTRUCT RESPONSE ---
-      const responsePayload: any = {
+      // --- D. RETURN THE RESPONSE (GHOST MODE) ---
+      // 🚨 CRITICAL CHANGE: We do NOT send 'assistantId'. 
+      // This forces Vapi to create a "Transient Assistant" using ONLY the config below.
+      // This guarantees your Training Data is used.
+      
+      return NextResponse.json({
         assistant: {
           variableValues: {
             business_name: businessName,
@@ -137,36 +122,31 @@ export async function POST(req: Request) {
           model: {
             provider: "openai",
             model: "gpt-4o",
-            // Increased slightly to 0.4 to allow him to "read" the notes more naturally, 
-            // but the instructions below are strict about facts.
-            temperature: 0.4, 
+            temperature: 0.1, // Strict adherence to facts
             messages: [
               {
                 role: "system",
                 content: `
                 ${selectedPersonaPrompt}
                 
-                # YOUR MAIN GOAL
-                You are the front desk receptionist. Your job is to answer customer questions using the KNOWLEDGE BASE below, and take messages if you cannot help.
+                # YOUR JOB
+                You are the receptionist. You answer questions using the KNOWLEDGE BASE below.
                 
                 ${trainingContext}
 
-                # 🟢 INSTRUCTIONS (HOW TO USE THE DATA)
-                1. **CHECK THE DATA FIRST:** If a customer asks "How much is X?" or "Are you open?", LOOK at the Knowledge Base above. 
-                2. **ANSWER CONFIDENTLY:** If the answer is in the Knowledge Base, GIVE IT. You are authorized to quote prices and hours listed there. Do NOT say "I'll ask the boss" if the price is written right there.
-                3. **BE HELPFUL:** If the user asks something vaguely related to the services listed, try to help based on the description.
+                # RULES
+                1. **USE THE KNOWLEDGE BASE:** If the caller asks about hours, prices, or services, CHECK the list above. If it's there, SAY IT.
+                2. **NO WEBSITE REFERRALS:** Do NOT tell them to check a website. You are the source of info.
+                3. **MISSING INFO:** If the info is NOT in the Knowledge Base, say: "I don't have that specific detail to hand, but I'll pass your question to the boss."
+                4. **LIVE DIARY:** If asked for a specific date/time, say: "I don't have access to the live calendar, but I'll request a callback for you."
+                5. **RECORDING:** Confirm call is recorded if asked.
+                6. **TEXTING:** Say "I'll pass this on immediately" (don't say "I will text").
 
-                # 🔴 RESTRICTIONS (WHEN TO STOP)
-                1. **MISSING INFO:** If the answer is *NOT* in the Knowledge Base, THEN say: "I don't have that specific detail to hand, but I'll get the boss to call you back with an answer."
-                2. **LIVE DIARY:** If asked for a specific appointment slot (e.g. "Is 2pm free?"), say: "I don't have access to the live calendar, but I'll take your request and the team will confirm it shortly."
-                3. **RECORDING:** If asked, confirm: "Yes, this call is recorded for quality purposes."
-                4. **TEXTING:** Say "I'll pass this message on immediately." (Do not say "I will text them").
-
-                # CONVERSATION FLOW
-                1. Greeting: "Hi, thanks for calling ${businessName}, this is [Your Name]. How can I help?"
-                2. Listen & Solve: If they have a question, answer it using the Knowledge Base.
-                3. Take Details: If they want to book or need a callback, get their Name and Phone Number.
-                4. Closing: "Thanks [Name], I've passed that on. Expect a call back shortly. [Sign off]!"
+                # CONVERSATION
+                1. Greeting: "Hi, thanks for calling ${businessName}, this is [Name]. How can I help?"
+                2. Q&A: Answer using Knowledge Base.
+                3. Lead: Get Name & Phone.
+                4. Bye: "Thanks, expect a call back soon. Cheers!"
                 `
               }
             ]
@@ -178,14 +158,7 @@ export async function POST(req: Request) {
             endpointing: 300
           }
         }
-      };
-
-      // Attach ID if available (Persistent), otherwise transient
-      if (assistantIdToUse) {
-          responsePayload.assistantId = assistantIdToUse;
-      }
-
-      return NextResponse.json(responsePayload);
+      });
     }
 
     // ==========================================
@@ -196,23 +169,22 @@ export async function POST(req: Request) {
       const analysis = message.analysis || {}; 
       const customerNumber = call.customer?.number || 'Unknown';
       
-      console.log(`📞 Call Ended. ID: ${call.id}`);
-
+      // Fetch user again to get phone number for SMS
       const { data: assistantRecord } = await supabaseAdmin
         .from('assistants')
-        .select(`
-            user_id, 
-            profiles:user_id ( 
-                business_phone, 
-                usage_minutes 
-            )
-        `)
+        .select('user_id')
         .eq('vapi_assistant_id', call.assistantId) 
         .maybeSingle();
 
       if (assistantRecord) {
         const userId = assistantRecord.user_id;
-        const profile = assistantRecord.profiles as any;
+        
+        // Fetch Profile for Usage & Phone
+        const { data: profile } = await supabaseAdmin
+            .from('profiles')
+            .select('business_phone, usage_minutes')
+            .eq('id', userId)
+            .single();
 
         // Save Call
         await supabaseAdmin.from('calls').insert({
