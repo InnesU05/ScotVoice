@@ -7,9 +7,8 @@ export async function POST(req: Request) {
   try {
     const { userId, action, payload } = await req.json();
 
+    // 1. Handle Voice Switch
     if (action === 'switch_voice') {
-      // Just update the DB preference. 
-      // The /api/twilio-voice route handles picking the right Agent ID based on this.
       const { error } = await supabaseAdmin
         .from('assistants')
         .update({ active_voice_id: payload.voiceId })
@@ -18,9 +17,10 @@ export async function POST(req: Request) {
       if (error) throw error;
     }
 
-    // Note: 'update_prompt' action is no longer needed because the prompt 
-    // is built dynamically on every call in /api/twilio-voice
-
+    // 2. Handle Prompt Update (Training Save)
+    // We do NOTHING here for Retell, because 'twilio-voice' injects the 
+    // training data dynamically on every call. We just return success.
+    
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
