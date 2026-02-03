@@ -4,7 +4,8 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { 
   Briefcase, UserCircle2, Dumbbell, CheckCircle2, 
-  ArrowRight, Store, Loader2, Play, Pause, ShieldCheck, AlertCircle
+  ArrowRight, Store, Loader2, Play, Pause, ShieldCheck, AlertCircle,
+  CreditCard, Clock // Added these imports
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -220,7 +221,7 @@ export default function Onboarding() {
             </motion.div>
           )}
 
-          {/* --- STEP 2: VOICE SELECTION --- */}
+          {/* --- STEP 2: VOICE SELECTION & PAYMENT PREVIEW --- */}
           {step === 2 && (
             <motion.div 
               key="step2"
@@ -245,7 +246,6 @@ export default function Onboarding() {
                   <div 
                     key={voice.id}
                     onClick={() => setSelectedVoice(voice.id)}
-                    // FIXED: Using helper function for classes
                     className={getCardStyle(voice.id, selectedVoice === voice.id)}
                   >
                     <div className="flex items-start gap-4">
@@ -297,28 +297,56 @@ export default function Onboarding() {
                 </div>
               )}
 
-              {/* Trust Footer */}
-              <div className="mt-8 pt-6 border-t border-slate-100 flex items-center gap-2 text-xs text-slate-400 justify-center">
-                 <ShieldCheck size={14} />
-                 <span>Your number is reserved instantly after payment.</span>
+              {/* --- SUBSCRIPTION SUMMARY CARD --- */}
+              <div className="mt-8 bg-slate-900 rounded-2xl p-6 text-white relative overflow-hidden border border-slate-800 shadow-xl">
+                 {/* Background Icon */}
+                 <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <CreditCard className="h-24 w-24 text-white" />
+                 </div>
+                 
+                 <div className="relative z-10">
+                    <div className="flex justify-between items-start mb-4">
+                       <div>
+                          <h3 className="text-xl font-bold text-white">NessDial Subscription</h3>
+                          <p className="text-slate-400 text-sm">Monthly Plan</p>
+                       </div>
+                       <div className="text-right">
+                          <p className="text-2xl font-bold text-white">£29.99<span className="text-sm text-slate-400 font-normal">/mo</span></p>
+                       </div>
+                    </div>
+
+                    <div className="space-y-2 mb-6">
+                       <div className="flex items-center gap-2 text-sm text-slate-300">
+                          <CheckCircle2 className="h-4 w-4 text-blue-400" /> <span>Unlimited Call Handling</span>
+                       </div>
+                       <div className="flex items-center gap-2 text-sm text-slate-300">
+                          <Clock className="h-4 w-4 text-blue-400" /> <span>Includes 200 AI Minutes</span>
+                       </div>
+                       <div className="flex items-center gap-2 text-sm text-slate-300">
+                          <CheckCircle2 className="h-4 w-4 text-blue-400" /> <span>All Personas Included</span>
+                       </div>
+                    </div>
+
+                    <button 
+                      onClick={handleCheckout}
+                      disabled={loading}
+                      className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-lg transition flex items-center justify-center gap-2 shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
+                    >
+                      {loading ? <Loader2 className="animate-spin" /> : 'Proceed to Checkout'}
+                    </button>
+                    
+                    <div className="mt-3 text-center">
+                       <button 
+                          onClick={() => setStep(1)}
+                          className="text-slate-500 text-sm hover:text-slate-300 transition underline underline-offset-4"
+                          disabled={loading}
+                       >
+                          Go Back to Step 1
+                       </button>
+                    </div>
+                 </div>
               </div>
 
-              <div className="mt-6 flex gap-3">
-                <button 
-                  onClick={() => setStep(1)} 
-                  className="px-6 py-4 rounded-xl font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-100 transition"
-                  disabled={loading}
-                >
-                  Back
-                </button>
-                <button 
-                  onClick={handleCheckout}
-                  disabled={loading}
-                  className="flex-1 py-4 bg-slate-900 text-white rounded-xl font-bold text-lg hover:bg-blue-600 transition flex items-center justify-center gap-2 shadow-lg hover:shadow-blue-600/20 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {loading ? <Loader2 className="animate-spin" /> : 'Proceed to Checkout'}
-                </button>
-              </div>
             </motion.div>
           )}
 
