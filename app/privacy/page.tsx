@@ -67,8 +67,12 @@ export default function Privacy() {
                 </p>
                 <div className="grid sm:grid-cols-2 gap-4 mt-4">
                   <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm">
-                    <strong>Vapi.ai / OpenAI</strong>
-                    <p className="text-slate-500 text-xs mt-1">AI Voice Processing & Transcription</p>
+                    <strong>Retell AI</strong>
+                    <p className="text-slate-500 text-xs mt-1">AI Voice Orchestration & Logic</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm">
+                    <strong>11Labs</strong>
+                    <p className="text-slate-500 text-xs mt-1">Voice Synthesis</p>
                   </div>
                   <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm">
                     <strong>Twilio</strong>
@@ -77,10 +81,6 @@ export default function Privacy() {
                   <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm">
                     <strong>Supabase</strong>
                     <p className="text-slate-500 text-xs mt-1">Secure Database Storage</p>
-                  </div>
-                  <div className="bg-white p-3 rounded-lg border border-slate-200 text-sm">
-                    <strong>Stripe</strong>
-                    <p className="text-slate-500 text-xs mt-1">Payment Processing</p>
                   </div>
                 </div>
               </div>
