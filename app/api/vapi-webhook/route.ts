@@ -11,20 +11,24 @@ export async function POST(req: Request) {
     const body = await req.json();
     const message = body.message;
 
+    console.log(`📣 Vapi Event: ${message.type}`);
+
+    // ==========================================
     // 1. INCOMING CALL (Gatekeeper)
+    // ==========================================
     if (message.type === 'assistant-request') {
       const { call } = message;
-      // We look up by the Phone Number ID attached to the call
-      // This is the most reliable way to find the owner.
+      
+      // Look up by Phone ID (Stable)
       const { data: assistant } = await supabaseAdmin
         .from('assistants')
-        .select('user_id, vapi_assistant_id') // We trust the ID in Vapi now
+        .select('user_id, vapi_assistant_id')
         .eq('vapi_phone_number_id', call.phoneNumberId)
         .single();
 
       if (!assistant) return NextResponse.json({ assistantId: null });
 
-      // Check Usage
+      // Check Usage Limits
       const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('usage_minutes, monthly_usage_limit')
@@ -32,20 +36,21 @@ export async function POST(req: Request) {
         .single();
 
       if ((profile?.usage_minutes || 0) >= (profile?.monthly_usage_limit || 200)) {
+          console.warn("⛔ Limit reached. Blocking.");
           return NextResponse.json({ error: "Limit reached" }, { status: 403 });
       }
 
-      // APPROVE: Tell Vapi "Yes, use the assistant currently assigned to this number"
-      // We do NOT send an 'assistant' object here. We just say "Proceed".
-      // By returning the ID, Vapi uses the config we saved in update-agent.
+      // Approve Call
       return NextResponse.json({ assistantId: assistant.vapi_assistant_id });
     }
 
-    // 2. CALL ENDED (Logger)
+    // ==========================================
+    // 2. CALL ENDED (Logger & SMS)
+    // ==========================================
     if (message.type === 'end-of-call-report') {
       const { call, analysis } = message;
       
-      // Find user again (Stateless)
+      // Look up by Phone ID (Stable)
       const { data: assistant } = await supabaseAdmin
         .from('assistants')
         .select('user_id')
@@ -55,14 +60,14 @@ export async function POST(req: Request) {
       if (assistant) {
         const userId = assistant.user_id;
         
-        // Log to DB
+        // Log Call
         await supabaseAdmin.from('calls').insert({
             user_id: userId,
             assistant_id: call.assistantId,
             customer_number: call.customer?.number || 'Unknown',
             status: message.endedReason,
             duration_seconds: Math.round(message.durationSeconds || 0),
-            summary: analysis?.summary || "No summary.",
+            summary: analysis?.summary || "No summary provided.",
             recording_url: message.recordingUrl,
             started_at: call.startedAt
         });
@@ -70,18 +75,24 @@ export async function POST(req: Request) {
         // Update Usage
         const minutes = (message.durationSeconds || 0) / 60;
         const { data: p } = await supabaseAdmin.from('profiles').select('usage_minutes, business_phone').eq('id', userId).single();
-        await supabaseAdmin.from('profiles').update({ usage_minutes: (p?.usage_minutes || 0) + minutes }).eq('id', userId);
+        
+        if (p) {
+            await supabaseAdmin.from('profiles').update({ usage_minutes: (p.usage_minutes || 0) + minutes }).eq('id', userId);
 
-        // Send SMS
-        if (p?.business_phone) {
-            const sms = `NessDial 📞\nCall from: ${call.customer?.number}\n\n${analysis?.summary || "(No message)"}`;
-            try {
-                await twilioClient.messages.create({
-                    body: sms,
-                    from: process.env.TWILIO_PHONE_NUMBER,
-                    to: p.business_phone
-                });
-            } catch (e) { console.error("SMS Failed", e); }
+            // Send SMS
+            if (p.business_phone) {
+                let smsBody = `NessDial 📞\nCall from: ${call.customer?.number}`;
+                smsBody += analysis?.summary ? `\n\nSummary: ${analysis.summary}` : `\n\n(No voice message left)`;
+
+                try {
+                    await twilioClient.messages.create({
+                        body: smsBody,
+                        from: process.env.TWILIO_PHONE_NUMBER,
+                        to: p.business_phone
+                    });
+                    console.log(`✅ SMS Sent to ${p.business_phone}`);
+                } catch (e) { console.error("❌ SMS Failed", e); }
+            }
         }
       }
       return NextResponse.json({ status: 'OK' });
