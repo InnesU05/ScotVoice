@@ -3,252 +3,161 @@ import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const dynamic = 'force-dynamic';
 
-const BLUEPRINTS = {
-  'tradie': '6af03c9c-2797-4818-8dfc-eb604c247f3d',
-  'coach': '1f5287e0-7f42-437c-aa10-ac39bc5171ae',
-  'pro': 'a5eaa6ce-db6e-4e35-bc31-2b8549a5c0e6'
-};
-
-// --- 🎭 SMART PERSONAS (Strict "Don't Ask Number" Rules) ---
+// 1. DEFINE THE TEMPLATES (The "Soul")
+// We use these base instructions but inject the user's data into them.
 const PERSONAS = {
-  'tradie': `
-    # IDENTITY
-    You are "Rab", the efficient Scottish receptionist for {{business_name}}.
-    
-    # YOUR VIBE
-    - **Accent:** Scottish. Use "No bother", "Cheers", "Aye".
-    - **Tone:** Friendly but busy. Efficient.
-    
-    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
-    - You CAN SEE the caller's number on your screen (Caller ID).
-    - **NEVER ASK:** "Can I have your number?" or "What's your number?"
-    - **INSTEAD SAY:** "I've got your number here on the screen, I'll get the boss to ring you back on this."
-    - Only ask if they explicitly say "Call me on a different line."
-  `,
-  'pro': `
-    # IDENTITY
-    You are "Claire", the executive receptionist for {{business_name}}.
-    
-    # YOUR VIBE
-    - **Tone:** Professional, crisp, concise.
-    
-    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
-    - You CAN SEE the caller's number.
-    - **NEVER ASK:** "May I have your phone number?"
-    - **INSTEAD SAY:** "I have captured your contact details from the display. We will return your call shortly."
-  `,
-  'coach': `
-    # IDENTITY
-    You are "Calum", the front-desk lead for {{business_name}}.
-    
-    # YOUR VIBE
-    - **Tone:** High energy, super fast.
-    
-    # 🚨 CRITICAL RULE: DO NOT ASK FOR PHONE NUMBER 🚨
-    - You CAN SEE the caller's number.
-    - **NEVER ASK:** "What's your digits?"
-    - **INSTEAD SAY:** "I've locked in your number from the caller ID. We'll hit you back ASAP."
-  `
+  'tradie': {
+    voiceId: "s3://voice-cloning-zero-shot/d9ff78ba-d016-47f6-b0ef-dd630f59414e/jennifer/manifest.json", // Rab's Voice
+    provider: "playht",
+    basePrompt: `
+      You are Rab, a friendly, efficient Scottish receptionist for {{business_name}}.
+      **Style:** Casual, warm, Scottish ("No bother", "Cheers").
+      **Rule:** You ALREADY see the caller's number. NEVER ask for it. Say "I've got your number on the screen."
+    `
+  },
+  'pro': {
+    voiceId: "s3://voice-cloning-zero-shot/820da3d2-3a3b-42e7-844d-e68db835a206/jennifer/manifest.json", // Claire's Voice
+    provider: "playht",
+    basePrompt: `
+      You are Claire, a professional executive receptionist for {{business_name}}.
+      **Style:** Polished, crisp, efficient.
+      **Rule:** You ALREADY see the caller's number. NEVER ask for it. Say "I have your details captured."
+    `
+  },
+  'coach': {
+    voiceId: "s3://voice-cloning-zero-shot/b5175513-3932-4874-9273-5499252c8033/jennifer/manifest.json", // Calum's Voice
+    provider: "playht",
+    basePrompt: `
+      You are Calum, a high-energy front-desk lead for {{business_name}}.
+      **Style:** Upbeat, fast, motivating.
+      **Rule:** You ALREADY see the caller's number. NEVER ask for it. Say "I've locked in your number."
+    `
+  }
 };
 
-// --- HELPER: GENERATE PROMPT ---
-function constructSystemPrompt(activeVoiceId: string, profile: any) {
+// 2. HELPER: MERGE DATA INTO PROMPT
+function generateSystemPrompt(personaKey: string, profile: any) {
   const businessName = profile?.business_name || "The Business";
+  const persona = PERSONAS[personaKey as keyof typeof PERSONAS] || PERSONAS['tradie'];
   
-  let basePersona = PERSONAS[activeVoiceId as keyof typeof PERSONAS] || PERSONAS['tradie'];
-  basePersona = basePersona.replace(/{{business_name}}/g, businessName);
+  let systemPrompt = persona.basePrompt.replace(/{{business_name}}/g, businessName);
 
-  const trainingContext = `
-  === 🟢 KNOWLEDGE BASE (QUICK REFERENCE) 🟢 ===
-  📍 BUSINESS: ${businessName}
-  📝 WHAT WE DO: ${profile?.business_description || "Services."}
-  🕒 HOURS: ${profile?.opening_hours || "Not listed. Do not guess."}
-  💰 PRICES: ${profile?.services || "Pricing on request."}
-  ❓ FAQs: ${profile?.faqs || "None."}
-  === 🔴 END DATA 🔴 ===
+  systemPrompt += `
+    \n\n=== 🟢 KNOWLEDGE BASE 🟢 ===
+    📍 BUSINESS: ${businessName}
+    📝 ABOUT: ${profile?.business_description || "Not specified."}
+    🕒 HOURS: ${profile?.opening_hours || "Not listed. Do not guess."}
+    💰 PRICES: ${profile?.services || "Pricing on request."}
+    ❓ FAQs: ${profile?.faqs || "None."}
+    
+    # YOUR JOB
+    1. Answer questions using the Knowledge Base.
+    2. If they want to book/leave a message: "I'll grab your details and get the boss to call you back."
+    3. CONFIRM (Don't Ask) Number: "I'll use the number on the display to call you back."
+    4. Hang up efficiently.
   `;
-
-  return `
-  ${basePersona}
-  
-  ${trainingContext}
-
-  # YOUR JOB (THE "HOOROO" PROTOCOL)
-  1. **ANSWER:** "Hi, thanks for calling ${businessName}, this is [Name]. How can I help?"
-  2. **FILTER:** If they ask a simple question (hours/price) AND it's in the Green Box above -> Answer it.
-  3. **TAKE MESSAGE:** If they want to book, chat, or ask something complex -> "I don't have the diary in front of me, but I'll grab your details and get the boss to call you back."
-  4. **CONFIRM NUMBER (DON'T ASK):** "I've got your number here from the display. Is this the best one to call you back on?"
-  5. **END:** "Great, I've passed that on. Cheers!" -> **HANG UP.**
-
-  # STRICT RULES
-  - **DO NOT** make up opening hours.
-  - **DO NOT** offer to "schedule" an appointment directly (you can't see the calendar). Just take the request.
-  - **DO NOT** ask for the phone number unless the Caller ID is hidden or they offer a different one.
-  `;
+  return systemPrompt;
 }
 
 export async function POST(req: Request) {
   try {
     const { userId, action, payload } = await req.json();
 
-    // 1. GET CURRENT SETUP
-    const { data: record, error } = await supabaseAdmin
+    // A. GET DATA
+    const { data: record } = await supabaseAdmin
       .from('assistants')
-      .select('id, vapi_phone_number_id, vapi_assistant_id, active_voice_id')
+      .select('*')
       .eq('user_id', userId)
       .single();
 
-    if (error || !record) throw new Error('No assistant found');
+    if (!record) throw new Error('No assistant record found');
 
     const { data: profile } = await supabaseAdmin
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-    const currentAssistantId = record.vapi_assistant_id;
-    const activeVoiceId = record.active_voice_id || 'tradie';
+    const currentVoiceId = record.active_voice_id || 'tradie';
+    const targetVoiceId = (action === 'switch_voice') ? payload.voiceId : currentVoiceId;
+    
+    // B. PREPARE VAPI CONFIG
+    // This is the "Native Config" we push to Vapi.
+    const personaConfig = PERSONAS[targetVoiceId as keyof typeof PERSONAS] || PERSONAS['tradie'];
+    const systemPrompt = generateSystemPrompt(targetVoiceId, profile);
+    const businessName = profile?.business_name || "My Business";
 
-    // --- SHARED UPDATE LOGIC ---
-    const updateVapiAssistant = async (assistantId: string | null, voiceId: string, isNew = false, blueprint: any = null) => {
-      
-      const newSystemPrompt = constructSystemPrompt(voiceId, profile);
-      const businessName = profile?.business_name || "The Business";
-      
-      const apiPayload: any = {
+    const vapiPayload = {
+        name: `${targetVoiceId}_${businessName}`.substring(0, 40),
+        // 1. The Brain (Native Vapi Model)
         model: {
-          provider: "openai",
-          model: "gpt-4o",
-          // Tweak: 0.2 is sharper/smarter than 0.4. Less creative, more efficient.
-          temperature: 0.2, 
-          messages: [
-            { role: 'system', content: newSystemPrompt }
-          ]
-        }
-      };
-
-      if (isNew && blueprint) {
-        // Creating a new assistant (Switch Voice)
-        let firstMsg = (blueprint.firstMessage || "Hello.");
-        firstMsg = firstMsg.replace(/{{business_name}}/g, businessName);
-
-        apiPayload.name = `${(blueprint as any).name} (${profile?.business_name})`.substring(0, 40);
-        apiPayload.firstMessage = firstMsg;
-        // Keep the high-quality voice settings from the blueprint
-        apiPayload.voice = (blueprint as any).voice; 
-        apiPayload.transcriber = (blueprint as any).transcriber;
-        apiPayload.analysisPlan = { summaryPlan: { enabled: true } };
-
-        // Clean the blueprint to remove IDs
-        const { id, orgId, createdAt, updatedAt, ...cleanBlueprint } = blueprint;
-        // Merge but prioritize our new payload
-        const finalBody = { ...cleanBlueprint, ...apiPayload };
-        
-        console.log("Creating New Assistant:", JSON.stringify(finalBody));
-
-        const res = await fetch('https://api.vapi.ai/assistant', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(finalBody),
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error("Vapi Create Error:", errText);
-            throw new Error(`Failed to create assistant: ${errText}`);
-        }
-        return await res.json();
-
-      } else {
-        // PATCH existing assistant (Update Prompt)
-        console.log(`Updating Assistant ${assistantId}...`);
-        
-        const res = await fetch(`https://api.vapi.ai/assistant/${assistantId}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(apiPayload),
-        });
-
-        if (!res.ok) {
-            const errText = await res.text();
-            console.error("Vapi Update Error:", errText);
-            throw new Error(`Failed to update assistant: ${errText}`);
-        }
-        return await res.json();
-      }
+            provider: "openai",
+            model: "gpt-4o",
+            temperature: 0.1, // Keep it smart and strictly factual
+            messages: [{ role: "system", content: systemPrompt }]
+        },
+        // 2. The Voice (Native Vapi Voice)
+        voice: {
+            provider: personaConfig.provider,
+            voiceId: personaConfig.voiceId,
+        },
+        // 3. The Ears (Native Transcriber - Optimized for Accents)
+        transcriber: {
+            provider: "deepgram",
+            model: "nova-2",
+            language: "en-GB", // CRITICAL for Scottish accents
+            smartFormatting: true,
+        },
+        // 4. The Wiring (CRITICAL: Tells Vapi where to send logs)
+        serverUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/vapi-webhook`,
+        serverUrlSecret: "my-secret-token" // Optional security
     };
 
+    // C. EXECUTE UPDATE OR CREATE
+    // We always "Update" the existing assistant ID if it exists. 
+    // If we are switching, we update the existing assistant's settings to the new persona.
+    // This PREVENTS Zombie IDs because the ID stays the same!
+    
+    let vapiIdToUpdate = record.vapi_assistant_id;
 
-    // --- ACTION 1: UPDATE PROMPT (Training Save) ---
-    if (action === 'update_prompt') {
-      try {
-        await updateVapiAssistant(currentAssistantId, activeVoiceId);
-        return NextResponse.json({ success: true });
-      } catch (err: any) {
-        // If 404, it means the assistant was manually deleted in Vapi.
-        // We catch this so the UI doesn't crash, but warn the user.
-        if (err.message.includes('404')) {
-            return NextResponse.json({ error: "Assistant not found. Please switch voices to reset." }, { status: 404 });
-        }
-        throw err;
-      }
+    // If for some reason we don't have an ID, or it's invalid, we create one.
+    if (!vapiIdToUpdate) {
+        const createRes = await fetch('https://api.vapi.ai/assistant', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(vapiPayload)
+        });
+        const newAgent = await createRes.json();
+        vapiIdToUpdate = newAgent.id;
+        
+        // Link to phone number
+        await fetch(`https://api.vapi.ai/phone-number/${record.vapi_phone_number_id}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assistantId: vapiIdToUpdate })
+        });
+    } else {
+        // Update existing ID with new Brain/Voice
+        await fetch(`https://api.vapi.ai/assistant/${vapiIdToUpdate}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify(vapiPayload)
+        });
     }
 
-
-    // --- ACTION 2: SWITCH VOICE (New Agent) ---
-    if (action === 'switch_voice') {
-      const voiceId = payload.voiceId as keyof typeof BLUEPRINTS;
-      const targetBlueprintId = BLUEPRINTS[voiceId];
-      
-      // Fetch Blueprint
-      const bpRes = await fetch(`https://api.vapi.ai/assistant/${targetBlueprintId}`, {
-        headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
-      });
-      if (!bpRes.ok) throw new Error("Failed to fetch blueprint");
-      const blueprint = await bpRes.json();
-
-      // Create New
-      const newAssistant = await updateVapiAssistant(null, voiceId, true, blueprint);
-
-      // Link Number
-      await fetch(`https://api.vapi.ai/phone-number/${record.vapi_phone_number_id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ assistantId: newAssistant.id }),
-      });
-
-      // Update DB
-      await supabaseAdmin.from('assistants').update({ 
-          vapi_assistant_id: newAssistant.id,
-          active_voice_id: voiceId 
-      }).eq('id', record.id);
-
-      // Cleanup Old (Ignore errors)
-      if (currentAssistantId && !Object.values(BLUEPRINTS).includes(currentAssistantId)) {
-        try {
-            await fetch(`https://api.vapi.ai/assistant/${currentAssistantId}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}` }
-            });
-        } catch (e) { console.log("Cleanup skipped"); }
-      }
-
-      return NextResponse.json({ success: true });
-    }
+    // D. SAVE TO DB
+    await supabaseAdmin
+        .from('assistants')
+        .update({ 
+            active_voice_id: targetVoiceId,
+            vapi_assistant_id: vapiIdToUpdate 
+        })
+        .eq('id', record.id);
 
     return NextResponse.json({ success: true });
 
   } catch (error: any) {
-    console.error("Update Agent Error:", error);
+    console.error("Update Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

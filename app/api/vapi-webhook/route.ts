@@ -11,133 +11,86 @@ export async function POST(req: Request) {
     const body = await req.json();
     const message = body.message;
 
-    console.log(`📣 Vapi Event: ${message.type}`);
-
-    // ==========================================
-    // 1. INCOMING CALL
-    // ==========================================
+    // 1. INCOMING CALL (Gatekeeper)
     if (message.type === 'assistant-request') {
-      const calledNumber = message.call.phoneNumberId; 
-      
-      const { data: assistantRecord } = await supabaseAdmin
+      const { call } = message;
+      // We look up by the Phone Number ID attached to the call
+      // This is the most reliable way to find the owner.
+      const { data: assistant } = await supabaseAdmin
         .from('assistants')
-        .select('user_id, vapi_assistant_id')
-        .eq('vapi_phone_number_id', calledNumber) 
+        .select('user_id, vapi_assistant_id') // We trust the ID in Vapi now
+        .eq('vapi_phone_number_id', call.phoneNumberId)
         .single();
 
-      if (assistantRecord) {
-        // Check Minutes Limit
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('usage_minutes, monthly_usage_limit')
-            .eq('id', assistantRecord.user_id)
-            .single();
+      if (!assistant) return NextResponse.json({ assistantId: null });
 
-        const currentUsage = profile?.usage_minutes || 0;
-        const limit = profile?.monthly_usage_limit || 200;
+      // Check Usage
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('usage_minutes, monthly_usage_limit')
+        .eq('id', assistant.user_id)
+        .single();
 
-        if (currentUsage >= limit) {
-             console.warn(`⛔ Limit Reached (${currentUsage}/${limit}). Blocking call.`);
-             return NextResponse.json({ error: "Limit reached" }, { status: 403 });
-        }
-
-        return NextResponse.json({ assistantId: assistantRecord.vapi_assistant_id });
+      if ((profile?.usage_minutes || 0) >= (profile?.monthly_usage_limit || 200)) {
+          return NextResponse.json({ error: "Limit reached" }, { status: 403 });
       }
-      return NextResponse.json({ assistantId: null });
+
+      // APPROVE: Tell Vapi "Yes, use the assistant currently assigned to this number"
+      // We do NOT send an 'assistant' object here. We just say "Proceed".
+      // By returning the ID, Vapi uses the config we saved in update-agent.
+      return NextResponse.json({ assistantId: assistant.vapi_assistant_id });
     }
 
-    // ==========================================
-    // 2. END OF CALL (The Critical Fix)
-    // ==========================================
+    // 2. CALL ENDED (Logger)
     if (message.type === 'end-of-call-report') {
-      const call = message.call;
-      const analysis = message.analysis || {}; 
-      const customerNumber = call.customer?.number || 'Unknown';
+      const { call, analysis } = message;
       
-      // 🚨 FIX: Identify User by PHONE ID (Permanent), NOT Assistant ID (Changeable)
-      // This prevents the "Zombie ID" bug where logs/SMS stop working after a switch.
-      const vapiPhoneNumberId = call.phoneNumberId; 
-
-      console.log(`📞 Call Ended. Lookup via Phone ID: ${vapiPhoneNumberId}`);
-
-      const { data: assistantRecord, error: lookupError } = await supabaseAdmin
+      // Find user again (Stateless)
+      const { data: assistant } = await supabaseAdmin
         .from('assistants')
-        .select('user_id, vapi_assistant_id') // We get the user_id from the permanent phone record
-        .eq('vapi_phone_number_id', vapiPhoneNumberId) 
-        .maybeSingle();
+        .select('user_id')
+        .eq('vapi_phone_number_id', call.phoneNumberId)
+        .single();
 
-      if (lookupError) console.error("Database Lookup Error:", lookupError);
-
-      if (assistantRecord) {
-        const userId = assistantRecord.user_id;
+      if (assistant) {
+        const userId = assistant.user_id;
         
-        // Fetch Profile for SMS & Usage
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('business_phone, usage_minutes')
-            .eq('id', userId)
-            .single();
+        // Log to DB
+        await supabaseAdmin.from('calls').insert({
+            user_id: userId,
+            assistant_id: call.assistantId,
+            customer_number: call.customer?.number || 'Unknown',
+            status: message.endedReason,
+            duration_seconds: Math.round(message.durationSeconds || 0),
+            summary: analysis?.summary || "No summary.",
+            recording_url: message.recordingUrl,
+            started_at: call.startedAt
+        });
 
-        if (profile) {
-            console.log(`✅ User Found (ID: ${userId}). Processing Log & SMS...`);
+        // Update Usage
+        const minutes = (message.durationSeconds || 0) / 60;
+        const { data: p } = await supabaseAdmin.from('profiles').select('usage_minutes, business_phone').eq('id', userId).single();
+        await supabaseAdmin.from('profiles').update({ usage_minutes: (p?.usage_minutes || 0) + minutes }).eq('id', userId);
 
-            // A. LOG CALL
-            const { error: logError } = await supabaseAdmin.from('calls').insert({
-                user_id: userId,
-                assistant_id: call.assistantId, // We log the actual assistant ID from the call
-                customer_number: customerNumber,
-                status: message.endedReason || 'completed',
-                duration_seconds: Math.round(message.durationSeconds || 0),
-                summary: analysis.summary || "No summary provided.",
-                recording_url: message.recordingUrl || null,
-                started_at: call.startedAt || new Date().toISOString()
-            });
-
-            if (logError) console.error("❌ Failed to Log Call:", logError);
-
-            // B. UPDATE USAGE
-            const durationMinutes = (message.durationSeconds || 0) / 60;
-            await supabaseAdmin
-                .from('profiles')
-                .update({ usage_minutes: (profile.usage_minutes || 0) + durationMinutes })
-                .eq('id', userId);
-            
-            // C. SEND SMS (Force Send)
-            if (profile.business_phone) {
-                let smsBody = `NessDial 📞\nCall from: ${customerNumber}`;
-                
-                // If summary exists, add it. If not (short call), say so.
-                if (analysis.summary) {
-                    smsBody += `\n\nSummary: ${analysis.summary}`;
-                } else {
-                    smsBody += `\n\n(Caller hung up or no message left)`;
-                }
-
-                try {
-                    console.log(`📨 Sending SMS to ${profile.business_phone}...`);
-                    await twilioClient.messages.create({
-                        body: smsBody,
-                        from: process.env.TWILIO_PHONE_NUMBER,
-                        to: profile.business_phone
-                    });
-                    console.log(`✅ SMS Sent Successfully!`);
-                } catch (smsError: any) {
-                    console.error("❌ SMS Failed:", smsError.message);
-                }
-            } else {
-                console.warn("⚠️ No business phone number set. SMS skipped.");
-            }
+        // Send SMS
+        if (p?.business_phone) {
+            const sms = `NessDial 📞\nCall from: ${call.customer?.number}\n\n${analysis?.summary || "(No message)"}`;
+            try {
+                await twilioClient.messages.create({
+                    body: sms,
+                    from: process.env.TWILIO_PHONE_NUMBER,
+                    to: p.business_phone
+                });
+            } catch (e) { console.error("SMS Failed", e); }
         }
-      } else {
-          console.error(`🚨 CRITICAL: No user found for Vapi Phone ID: ${vapiPhoneNumberId}`);
       }
-      return NextResponse.json({ status: 'Logged' }, { status: 200 });
+      return NextResponse.json({ status: 'OK' });
     }
 
-    return NextResponse.json({ message: 'Handled' });
+    return NextResponse.json({ status: 'Ignored' });
 
   } catch (error: any) {
-    console.error('🚨 Webhook Error:', error.message);
+    console.error("Webhook Error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
