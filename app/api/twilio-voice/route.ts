@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 // 1. CONFIG: Your 3 Static Retell Agents
 // Go to Retell Dashboard -> Create Agent -> Copy Agent ID
 const AGENT_IDS = {
-  'tradie': 'agent_12345_rab_id_here',   // Replace with actual Retell Agent ID for Rab
-  'pro':    'agent_67890_claire_id_here', // Replace with actual Retell Agent ID for Claire
-  'coach':  'agent_abcde_calum_id_here'   // Replace with actual Retell Agent ID for Calum
+  'tradie': 'agent_34811a2936cefcafa15f076233',   // Replace with actual Retell Agent ID for Rab
+  'pro':    'agent_56bbf189b4a81a1ddd58059a97', // Replace with actual Retell Agent ID for Claire
+  'coach':  'agent_9f7085362040154da834b0324b'   // Replace with actual Retell Agent ID for Calum
 };
 
 const RETELL_API_KEY = process.env.RETELL_API_KEY;
