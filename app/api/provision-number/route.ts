@@ -6,9 +6,26 @@ export const dynamic = 'force-dynamic';
 
 const twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
+// Get the app URL from environment or construct it
+const getAppUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  // Fallback for production on Vercel
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  // Fallback for local development
+  return 'http://localhost:3000';
+};
+
 export async function POST(req: Request) {
   try {
     const { userId } = await req.json();
+
+    if (!userId) {
+      throw new Error("Missing userId in request");
+    }
 
     // 1. SEARCH for a UK Mobile Number (+44 7...)
     const availableNumbers = await twilioClient.availablePhoneNumbers('GB')
@@ -20,13 +37,14 @@ export async function POST(req: Request) {
     }
 
     const selectedNumber = availableNumbers[0].phoneNumber;
+    const appUrl = getAppUrl();
 
     // 2. BUY the number (With Regulatory Bundle if provided)
     // We create an options object first
     const purchaseOptions: any = {
       phoneNumber: selectedNumber,
       // CRITICAL: Point Voice URL to our new handler
-      voiceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/twilio-voice`, 
+      voiceUrl: `${appUrl}/api/twilio-voice`, 
       voiceMethod: 'POST'
     };
 
@@ -48,10 +66,12 @@ export async function POST(req: Request) {
 
     if (error) throw error;
 
+    console.log(`✅ Phone number provisioned: ${incomingPhoneNumber.phoneNumber} for user ${userId}`);
+
     return NextResponse.json({ success: true, phoneNumber: incomingPhoneNumber.phoneNumber });
 
   } catch (error: any) {
-    console.error("Provisioning Error:", error);
+    console.error("Provisioning Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
