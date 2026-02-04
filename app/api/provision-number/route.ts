@@ -21,13 +21,21 @@ export async function POST(req: Request) {
 
     const selectedNumber = availableNumbers[0].phoneNumber;
 
-    // 2. BUY the number
-    const incomingPhoneNumber = await twilioClient.incomingPhoneNumbers.create({
+    // 2. BUY the number (With Regulatory Bundle if provided)
+    // We create an options object first
+    const purchaseOptions: any = {
       phoneNumber: selectedNumber,
       // CRITICAL: Point Voice URL to our new handler
       voiceUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/twilio-voice`, 
       voiceMethod: 'POST'
-    });
+    };
+
+    // If the Bundle SID exists in Vercel, add it to the request
+    if (process.env.TWILIO_BUNDLE_SID) {
+      purchaseOptions.bundleSid = process.env.TWILIO_BUNDLE_SID;
+    }
+
+    const incomingPhoneNumber = await twilioClient.incomingPhoneNumbers.create(purchaseOptions);
 
     // 3. SAVE to DB
     const { error } = await supabaseAdmin
