@@ -317,7 +317,7 @@ export default function Onboarding() {
 
                     <div className="space-y-2 mb-6">
                        <div className="flex items-center gap-2 text-sm text-slate-300">
-                          <CheckCircle2 className="h-4 w-4 text-blue-400" /> <span>Unlimited Call Handling</span>
+                          <CheckCircle2 className="h-4 w-4 text-blue-400" /> <span>Recover 100% of Missed Calls</span>
                        </div>
                        <div className="flex items-center gap-2 text-sm text-slate-300">
                           <Clock className="h-4 w-4 text-blue-400" /> <span>Includes 200 AI Minutes</span>
