@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-// 🔴 KEEP YOUR KEY (It works!)
+// 🔴 KEEP YOUR KEY
 const RETELL_API_KEY = "key_5963e986555abe28071a8a2766f6"; 
 
 const AGENT_IDS: Record<string, string> = {
@@ -58,8 +58,8 @@ export async function POST(req: Request) {
     const selectedVoice = assistant.active_voice_id || 'tradie';
     const agentId = AGENT_IDS[selectedVoice] || AGENT_IDS['tradie'];
 
-    // 🔴 FIX: CHANGED URL from '/v2/register-call' to '/register-call'
-    const retellRes = await fetch('https://api.retellai.com/register-call', {
+    // 🔴 THE FIX: Use 'register-phone-call' (New API Name)
+    const retellRes = await fetch('https://api.retellai.com/v2/register-phone-call', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RETELL_API_KEY}`,
@@ -69,6 +69,7 @@ export async function POST(req: Request) {
         agent_id: agentId,
         from_number: from,
         to_number: to,
+        direction: 'inbound', // Best practice to add this
         retell_llm_dynamic_variables: {
           training_data: knowledgeBase,
           business_name: businessName
