@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 
 export const dynamic = 'force-dynamic';
 
-// 🔴 KEEP YOUR HARDCODED KEY FOR NOW
+// 🔴 KEEP YOUR KEY (It works!)
 const RETELL_API_KEY = "key_5963e986555abe28071a8a2766f6"; 
 
 const AGENT_IDS: Record<string, string> = {
@@ -16,12 +16,13 @@ export async function POST(req: Request) {
   try {
     console.log("📞 Call Hit Server...");
 
-    // 1. SAFE DATABASE INIT (Inside the function so we can catch errors)
+    // 1. SAFE DATABASE INIT
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl) throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL in Vercel");
-    if (!supabaseKey) throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY in Vercel");
+    if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Missing Supabase Keys in Vercel");
+    }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
@@ -57,7 +58,8 @@ export async function POST(req: Request) {
     const selectedVoice = assistant.active_voice_id || 'tradie';
     const agentId = AGENT_IDS[selectedVoice] || AGENT_IDS['tradie'];
 
-    const retellRes = await fetch('https://api.retellai.com/v2/register-call', {
+    // 🔴 FIX: CHANGED URL from '/v2/register-call' to '/register-call'
+    const retellRes = await fetch('https://api.retellai.com/register-call', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${RETELL_API_KEY}`,
@@ -95,11 +97,10 @@ export async function POST(req: Request) {
   } catch (error: any) {
     console.error("🚨 Call Failed:", error);
     
-    // SANITIZE: Remove characters that crash Twilio
     const safeError = (error.message || "Unknown Error").replace(/[^a-zA-Z0-9 ]/g, " ");
 
     return new NextResponse(
-        `<Response><Say>Diagnostic Mode. ${safeError}</Say></Response>`,
+        `<Response><Say>Connection Error. ${safeError}</Say></Response>`,
         { headers: { "Content-Type": "text/xml" } }
     );
   }
