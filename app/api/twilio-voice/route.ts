@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     console.log("✅ Success! Connecting Stream:", retellData.call_id);
 
     return new NextResponse(
-      `<Response><Connect><Stream url="wss://api.retellai.com/v2/audio-websocket/${retellData.call_id}" /></Connect></Response>`,
+      `<Response><Connect><Stream url="wss://api.retellai.com/audio-websocket/${retellData.call_id}" /></Connect></Response>`,
       { headers: { "Content-Type": "text/xml" } }
     );
 
