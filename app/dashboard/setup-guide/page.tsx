@@ -16,7 +16,7 @@ export default function SetupGuide() {
       if (!user) return;
 
       const { data: assistant } = await supabase
-        .from('assistants')
+        .from('agents')
         .select('twilio_phone_number') 
         .eq('user_id', user.id)
         .single();
