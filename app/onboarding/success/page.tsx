@@ -6,80 +6,68 @@ import { Loader2, CheckCircle2, Phone, ArrowRight, Sparkles } from 'lucide-react
 import { motion } from 'framer-motion';
 import confetti from 'canvas-confetti';
 
-// 1. The Logic Component (Handles the Search Params)
+// 1. The Logic Component
 function SuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const sessionId = searchParams.get('session_id');
   
-  const [status, setStatus] = useState('Verifying your payment...');
+  const [status, setStatus] = useState('Waiting for automation...');
   const [purchasedNumber, setPurchasedNumber] = useState('');
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
-    const runProvisioning = async () => {
-      if (!sessionId) return;
+    let intervalId: NodeJS.Timeout;
 
+    const checkProvisioning = async () => {
       // 1. Get User
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-         setError("Please log in to finish setup.");
-         setLoading(false);
-         return;
-      }
+      if (!user) return; // Wait for auth
 
-      // 2. Get their saved choices (Business Name & Voice)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('business_name, selected_voice')
-        .eq('id', user.id)
+      // 2. Check for the Agent Number in DB
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('twilio_phone_number')
+        .eq('user_id', user.id)
         .single();
 
-      if (!profile) {
-        setError('Could not retrieve setup details.');
+      if (agent?.twilio_phone_number) {
+        // SUCCESS! Found the number
+        setPurchasedNumber(agent.twilio_phone_number);
         setLoading(false);
-        return;
-      }
-
-      setStatus('Securing your UK Mobile Number...');
-
-      // 3. Call Provisioning API
-      try {
-        const res = await fetch('/api/provision-number', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.id,
-            businessName: profile.business_name,
-            voiceId: profile.selected_voice
-          }),
-        });
-
-        const data = await res.json();
+        setStatus('Ready!');
         
-        if (data.success) {
-          setPurchasedNumber(data.phoneNumber);
-          setLoading(false);
-          // Mark onboarding as complete in DB
-          await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
-          
-          // Trigger Confetti Effect
-          confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
-        } else {
-          setError(data.error || 'Provisioning failed.');
-          setLoading(false);
-        }
-
-      } catch (err) {
-        setError('Connection failed. Please contact support.');
-        setLoading(false);
+        // Mark onboarding complete
+        await supabase.from('profiles').update({ onboarding_complete: true }).eq('id', user.id);
+        
+        // Party time
+        confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } });
+        clearInterval(intervalId); // Stop checking
+      } else {
+        // Still waiting... update status text occasionally
+        setAttempts(prev => prev + 1);
+        setStatus(prev => prev === 'Securing your UK Mobile Number...' ? 'Finalizing setup...' : 'Securing your UK Mobile Number...');
       }
     };
 
-    // Run once on mount
-    runProvisioning();
-  }, [sessionId]);
+    // Run immediately, then every 3 seconds
+    checkProvisioning();
+    intervalId = setInterval(checkProvisioning, 3000);
+
+    // Stop after 60 seconds (20 checks) to prevent infinite loops
+    const timeoutId = setTimeout(() => {
+      clearInterval(intervalId);
+      if (loading) {
+         // Even if it times out, we let them go to dashboard to check there
+         setLoading(false); 
+      }
+    }, 60000);
+
+    return () => {
+      clearInterval(intervalId);
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -91,29 +79,18 @@ function SuccessContent() {
         </div>
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Setting Up Your AI...</h2>
         <p className="text-slate-500 animate-pulse font-medium">{status}</p>
+        {attempts > 5 && <p className="text-xs text-slate-400 mt-4">This usually takes about 10-15 seconds...</p>}
       </div>
     );
   }
 
-  if (error) {
-    return (
-      <div className="py-6">
-        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-          <Phone className="w-10 h-10 text-red-600" />
-        </div>
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Something went wrong</h1>
-        <p className="text-red-500 mb-8">{error}</p>
-        <button onClick={() => window.location.reload()} className="text-blue-600 font-bold hover:underline">Try Again</button>
-      </div>
-    );
-  }
-
+  // If we finished (or timed out but want to show dashboard link anyway)
   return (
     <div className="py-6">
       <motion.div 
         initial={{ scale: 0 }} 
         animate={{ scale: 1 }}
-        transition={{ type: "spring" }} // FIXED: Moved 'type' inside transition prop
+        transition={{ type: "spring" }} 
         className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
       >
         <CheckCircle2 className="w-10 h-10 text-green-600" />
@@ -122,10 +99,16 @@ function SuccessContent() {
       <h1 className="text-3xl font-bold text-slate-900 mb-2">You're Live!</h1>
       <p className="text-slate-500 mb-8">Your receptionist is active and ready.</p>
 
-      <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-200">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Your New Mobile Number</p>
-        <p className="text-3xl font-mono font-bold text-slate-900 tracking-tight">{purchasedNumber}</p>
-      </div>
+      {purchasedNumber ? (
+        <div className="bg-slate-50 rounded-2xl p-6 mb-8 border border-slate-200">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Your New Mobile Number</p>
+          <p className="text-3xl font-mono font-bold text-slate-900 tracking-tight">{purchasedNumber}</p>
+        </div>
+      ) : (
+        <div className="bg-yellow-50 rounded-2xl p-6 mb-8 border border-yellow-200">
+           <p className="text-yellow-700 font-medium">Setup is taking a little longer than usual, but it's running in the background.</p>
+        </div>
+      )}
 
       <button 
         onClick={() => router.push('/dashboard')}
@@ -137,7 +120,7 @@ function SuccessContent() {
   );
 }
 
-// 2. The Main Page Component (Wraps Logic in Suspense)
+// 2. The Main Page Component
 export default function SuccessPage() {
   return (
     <main className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4">
@@ -147,19 +130,15 @@ export default function SuccessPage() {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md bg-white rounded-3xl p-10 text-center shadow-2xl overflow-hidden relative"
       >
-        {/* Decorative Blur */}
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-purple-500"></div>
-
-        {/* SUSPENSE BOUNDARY IS CRITICAL FOR BUILD */}
         <Suspense fallback={
           <div className="py-10">
              <Loader2 className="w-10 h-10 text-blue-600 animate-spin mx-auto" />
-             <p className="text-slate-500 mt-4">Loading payment data...</p>
+             <p className="text-slate-500 mt-4">Checking setup status...</p>
           </div>
         }>
           <SuccessContent />
         </Suspense>
-        
       </motion.div>
     </main>
   );
