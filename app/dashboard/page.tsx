@@ -117,7 +117,7 @@ export default function Dashboard() {
 
   // Data State
   const [user, setUser] = useState<any>(null);
-  const [assistantData, setAssistantData] = useState<any>(null);
+  const [agentData, setAgentData] = useState<any>(null); // Renamed from assistantData
   const [businessName, setBusinessName] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [calls, setCalls] = useState<any[]>([]);
@@ -136,7 +136,7 @@ export default function Dashboard() {
       if (!user) { router.push('/login'); return; }
       setUser(user);
 
-      // Fetch Profile (including usage)
+      // 1. Fetch Profile (Business Name, Phone, Usage)
       const { data: profile } = await supabase
         .from('profiles')
         .select('business_name, business_phone, usage_minutes, monthly_usage_limit')
@@ -148,21 +148,38 @@ export default function Dashboard() {
         setNewNameInput(profile.business_name || "");
         setUserPhone(profile.business_phone || "");
         setNewPhoneInput(profile.business_phone || "");
-        setUsageStats({
-            used: profile.usage_minutes || 0,
-            limit: profile.monthly_usage_limit || 200
-        });
+        // Only set usage if the fields exist (Make.com will update these later)
+        if (profile.usage_minutes) {
+             setUsageStats({
+                used: profile.usage_minutes || 0,
+                limit: profile.monthly_usage_limit || 200
+            });
+        }
       }
 
-      const { data: assistant } = await supabase.from('assistants').select('*').eq('user_id', user.id).single();
-      setAssistantData(assistant);
+      // 2. Fetch Agent (Was 'assistants', now 'agents')
+      const { data: agent } = await supabase
+        .from('agents')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+        
+      setAgentData(agent);
       
       // Set active voice if found
-      if (assistant?.active_voice_id) {
-          setSelectedVoice(assistant.active_voice_id);
+      if (agent?.active_voice_id) {
+          setSelectedVoice(agent.active_voice_id);
       }
 
-      const { data: callLogs } = await supabase.from('calls').select('*').eq('user_id', user.id).order('started_at', { ascending: false }).limit(20);
+      // 3. Fetch Calls (Make.com will populate this table)
+      // Note: Ensure you have a 'calls' table or update this if you name it 'call_logs'
+      const { data: callLogs } = await supabase
+        .from('calls')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('started_at', { ascending: false })
+        .limit(20);
+        
       if (callLogs) setCalls(callLogs);
       
       setLoading(false);
@@ -170,19 +187,25 @@ export default function Dashboard() {
     fetchData();
   }, [router]);
 
-  // --- ACTIONS ---
+  // --- ACTIONS (UPDATED FOR DIRECT DB ACCESS) ---
+
   const handleUpdateName = async () => {
     if (!newNameInput.trim()) return;
     setUpdating(true);
     try {
-      const res = await fetch('/api/update-agent', {
-        method: 'POST',
-        body: JSON.stringify({ userId: user.id, action: 'update_name', payload: { name: newNameInput } })
-      });
-      if (!res.ok) throw new Error('Failed');
+      // Direct update to Profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ business_name: newNameInput })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
       setBusinessName(newNameInput);
       setIsEditingName(false);
-    } catch (err) { alert('Failed to update name'); }
+    } catch (err: any) { 
+        alert(`Failed to update name: ${err.message}`); 
+    }
     setUpdating(false);
   };
 
@@ -190,29 +213,40 @@ export default function Dashboard() {
     if (!newPhoneInput.trim()) return;
     setUpdating(true);
     try {
-      const res = await fetch('/api/update-agent', {
-        method: 'POST',
-        body: JSON.stringify({ userId: user.id, action: 'update_phone', payload: { phone: newPhoneInput } })
-      });
-      if (!res.ok) throw new Error('Failed');
+      // Direct update to Profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ business_phone: newPhoneInput })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
       setUserPhone(newPhoneInput);
       setIsEditingPhone(false);
-    } catch (err) { alert('Failed to update phone number'); }
+    } catch (err: any) { 
+        alert(`Failed to update phone number: ${err.message}`); 
+    }
     setUpdating(false);
   };
 
   const handleSwitchVoice = async (voiceId: string) => {
     if (updating) return;
     setUpdating(true);
-    setSelectedVoice(voiceId);
+    setSelectedVoice(voiceId); // Optimistic update
     try {
-      const res = await fetch('/api/update-agent', {
-        method: 'POST',
-        body: JSON.stringify({ userId: user.id, action: 'switch_voice', payload: { voiceId } })
-      });
-      if (!res.ok) throw new Error('Failed');
-      alert(`Assistant switched to ${voiceId.toUpperCase()}!`);
-    } catch (err) { alert('Failed to switch assistant'); }
+      // Direct update to Agents table (Make.com watches this)
+      const { error } = await supabase
+        .from('agents')
+        .update({ active_voice_id: voiceId })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      alert(`Assistant switched to ${voiceId.toUpperCase()}! Make.com is updating Retell...`);
+    } catch (err: any) { 
+        alert(`Failed to switch assistant: ${err.message}`); 
+        // Revert optimistic update on error would go here
+    }
     setUpdating(false);
   };
 
@@ -330,7 +364,7 @@ export default function Dashboard() {
                 <div>
                   <p className="text-xs text-slate-400 font-medium">Your AI Number</p>
                   <p className="text-lg font-mono font-semibold text-white tracking-wide">
-                    {assistantData?.twilio_phone_number || "Provisioning..."}
+                    {agentData?.twilio_phone_number || "Provisioning..."}
                   </p>
                 </div>
               </div>
@@ -409,7 +443,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xl">
-                {selectedVoice === 'tradie' ? '🔨' : selectedVoice === 'pro' ? '👔' : '⚡'}
+                {selectedVoice === 'tradie' ? '畑' : selectedVoice === 'pro' ? '藻' : '笞｡'}
               </div>
               <div className="text-left">
                 <h2 className="text-sm font-bold text-white">Active Persona</h2>
@@ -427,9 +461,9 @@ export default function Dashboard() {
             <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-1 gap-3 mt-4">
                 {[
-                  { id: 'tradie', icon: '🔨', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
-                  { id: 'pro', icon: '👔', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
-                  { id: 'coach', icon: '⚡', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
+                  { id: 'tradie', icon: '畑', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
+                  { id: 'pro', icon: '藻', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
+                  { id: 'coach', icon: '笞｡', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
                 ].map((voice) => (
                   <button 
                     key={voice.id}
