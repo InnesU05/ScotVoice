@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; // ✅ Fixed Import
+import { supabase } from '@/lib/supabase';
 import { Save, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function TrainingPage() {
@@ -14,6 +14,7 @@ export default function TrainingPage() {
   
   const [formData, setFormData] = useState({
     business_name: '',
+    // agent_name removed as requested
     business_description: '',
     opening_hours: '',
     services: '',
@@ -34,6 +35,7 @@ export default function TrainingPage() {
       if (profile) {
         setFormData({
           business_name: profile.business_name || '',
+          // No agent_name fetch
           business_description: profile.business_description || '',
           opening_hours: profile.opening_hours || '',
           services: profile.services || '',
@@ -61,18 +63,21 @@ export default function TrainingPage() {
 
       if (dbError) throw dbError;
 
-      // 2. Refresh Agent (Ensures DB consistency)
-      await fetch('/api/update-agent', {
+      // 2. Refresh Agent
+      const response = await fetch('/api/update-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, action: 'update_prompt' })
       });
 
+      if (!response.ok) throw new Error('Failed to update agent configuration');
+
       setMessage({ type: 'success', text: 'Training data saved successfully!' });
       router.refresh();
 
     } catch (error: any) {
-      setMessage({ type: 'error', text: error.message });
+      console.error(error);
+      setMessage({ type: 'error', text: error.message || "Failed to save" });
     } finally {
       setSaving(false);
     }
@@ -116,7 +121,7 @@ export default function TrainingPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">What do you do?</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">What do you do? (Business Description)</label>
           <textarea
             rows={3}
             value={formData.business_description}
@@ -146,7 +151,7 @@ export default function TrainingPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">FAQs</label>
+          <label className="block text-sm font-medium text-slate-700 mb-1">FAQs (Knowledge Base)</label>
           <textarea
             rows={3}
             value={formData.faqs}
