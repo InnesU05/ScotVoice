@@ -193,13 +193,20 @@ export default function Dashboard() {
     if (!newNameInput.trim()) return;
     setUpdating(true);
     try {
-      // Direct update to Profiles table
+      // 1. Update Database
       const { error } = await supabase
         .from('profiles')
         .update({ business_name: newNameInput })
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // 2. Trigger Retell Update (Add this part)
+      await fetch('/api/update-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
 
       setBusinessName(newNameInput);
       setIsEditingName(false);
@@ -213,13 +220,20 @@ export default function Dashboard() {
     if (!newPhoneInput.trim()) return;
     setUpdating(true);
     try {
-      // Direct update to Profiles table
+      // 1. Update Database
       const { error } = await supabase
         .from('profiles')
         .update({ business_phone: newPhoneInput })
         .eq('id', user.id);
 
       if (error) throw error;
+
+      // 2. Trigger Retell Update (Add this part)
+      await fetch('/api/update-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
 
       setUserPhone(newPhoneInput);
       setIsEditingPhone(false);
