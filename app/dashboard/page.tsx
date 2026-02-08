@@ -144,9 +144,11 @@ export default function Dashboard() {
         .single();
         
       if (profile) {
-        // FIX: Update both the display state AND the input field state so data persists on refresh
+        // This sets the main display heading
         setBusinessName(profile.business_name || "");
+        // This ensures the input field is populated on refresh
         setNewNameInput(profile.business_name || "");
+        
         setUserPhone(profile.business_phone || "");
         setNewPhoneInput(profile.business_phone || "");
 
