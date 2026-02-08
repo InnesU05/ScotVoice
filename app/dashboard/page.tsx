@@ -248,7 +248,7 @@ export default function Dashboard() {
     setUpdating(true);
     setSelectedVoice(voiceId); // Optimistic update
     try {
-      // Direct update to Agents table (Make.com watches this)
+      // 1. Update Database (Keep this)
       const { error } = await supabase
         .from('agents')
         .update({ active_voice_id: voiceId })
@@ -256,10 +256,16 @@ export default function Dashboard() {
 
       if (error) throw error;
       
-      alert(`Assistant switched to ${voiceId.toUpperCase()}! Make.com is updating Retell...`);
+      // 2. TRIGGER THE API (Add this!)
+      await fetch('/api/update-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+
+      alert(`Assistant switched to ${voiceId.toUpperCase()}!`);
     } catch (err: any) { 
         alert(`Failed to switch assistant: ${err.message}`); 
-        // Revert optimistic update on error would go here
     }
     setUpdating(false);
   };

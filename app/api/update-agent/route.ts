@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     // 1. Fetch the user's current agent settings to verify connection
     const { data: agent, error: agentError } = await supabaseAdmin
       .from('agents')
-      .select('retell_agent_id')
+      .select('retell_agent_id, active_voice_id')
       .eq('user_id', userId)
       .single();
 
@@ -33,7 +33,12 @@ export async function POST(req: Request) {
     const response = await fetch(makeWebhookUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, retellAgentId: agent.retell_agent_id })
+      // Send the voice ID to Make
+      body: JSON.stringify({ 
+          userId, 
+          retellAgentId: agent.retell_agent_id,
+          voiceInternalId: agent.active_voice_id // e.g. 'tradie'
+      })
     });
 
     if (!response.ok) {
