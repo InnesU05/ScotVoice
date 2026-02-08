@@ -132,23 +132,22 @@ export default function Dashboard() {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
-      setUser(user);
+      // 1. Get Auth User
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) { router.push('/login'); return; }
+      setUser(authUser);
 
-      // 1. Fetch Profile (Business Name, Phone, Usage)
+      // 2. Fetch Profile Data (Business Name, Phone, Usage)
       const { data: profile } = await supabase
         .from('profiles')
         .select('business_name, business_phone, usage_minutes, monthly_usage_limit')
-        .eq('id', user.id)
+        .eq('id', authUser.id)
         .single();
         
       if (profile) {
-        // This sets the main display heading
+        // SYNCHRONIZE DISPLAY AND INPUT STATES
         setBusinessName(profile.business_name || "");
-        // This ensures the input field is populated on refresh
         setNewNameInput(profile.business_name || "");
-        
         setUserPhone(profile.business_phone || "");
         setNewPhoneInput(profile.business_phone || "");
 
@@ -160,11 +159,11 @@ export default function Dashboard() {
         }
       }
 
-      // 2. Fetch Agent
+      // 3. Fetch Agent Data
       const { data: agent } = await supabase
         .from('agents')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .single();
         
       setAgentData(agent);
@@ -173,11 +172,11 @@ export default function Dashboard() {
           setSelectedVoice(agent.active_voice_id);
       }
 
-      // 3. Fetch Calls
+      // 4. Fetch Calls
       const { data: callLogs } = await supabase
         .from('calls')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', authUser.id)
         .order('started_at', { ascending: false })
         .limit(20);
         
@@ -187,6 +186,8 @@ export default function Dashboard() {
     };
     fetchData();
   }, [router]);
+
+  // --- ACTIONS ---
 
   const handleUpdateName = async () => {
     if (!newNameInput.trim()) return;
@@ -312,7 +313,7 @@ export default function Dashboard() {
                     <p className="text-xs font-bold text-slate-300 uppercase tracking-wider">Monthly Usage</p>
                 </div>
                 <p className="text-xs font-mono text-slate-400">
-                    <span className={isUsageHigh ? 'text-white' : 'text-white'}>{Math.round(usageStats.used)}</span> 
+                    <span className="text-white">{Math.round(usageStats.used)}</span> 
                     <span className="opacity-50">/{usageStats.limit} mins</span>
                 </p>
             </div>
@@ -452,7 +453,7 @@ export default function Dashboard() {
           >
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-full bg-slate-800 flex items-center justify-center text-xl">
-                {selectedVoice === 'tradie' ? '畑' : selectedVoice === 'pro' ? '藻' : '笞｡'}
+                {selectedVoice === 'tradie' ? '🛠️' : selectedVoice === 'pro' ? '👩‍💼' : '💪'}
               </div>
               <div className="text-left">
                 <h2 className="text-sm font-bold text-white">Active Persona</h2>
@@ -470,9 +471,9 @@ export default function Dashboard() {
             <div className="px-6 pb-6 pt-0 animate-in slide-in-from-top-2 duration-200">
               <div className="grid grid-cols-1 gap-3 mt-4">
                 {[
-                  { id: 'tradie', icon: '畑', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
-                  { id: 'pro', icon: '藻', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
-                  { id: 'coach', icon: '笞｡', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
+                  { id: 'tradie', icon: '🛠️', name: 'Rab (Tradie)', desc: 'Casual, Scottish, Friendly' },
+                  { id: 'pro', icon: '👩‍💼', name: 'Claire (Pro)', desc: 'Formal, Polite, Efficient' },
+                  { id: 'coach', icon: '💪', name: 'Calum (Coach)', desc: 'High Energy, Motivating' }
                 ].map((voice) => (
                   <button 
                     key={voice.id}
@@ -630,6 +631,14 @@ export default function Dashboard() {
               <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Mail className="h-5 w-5 text-slate-400" />
                 <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
+              </Link>
+              <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Download className="h-5 w-5 text-blue-400" />
+                <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
+              </Link>
+              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
+                <Star className="h-5 w-5 text-yellow-500" />
+                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
               </Link>
             </div>
           </div>
