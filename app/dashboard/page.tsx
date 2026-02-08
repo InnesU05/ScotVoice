@@ -117,11 +117,11 @@ export default function Dashboard() {
 
   // Data State
   const [user, setUser] = useState<any>(null);
-  const [agentData, setAgentData] = useState<any>(null); // Renamed from assistantData
+  const [agentData, setAgentData] = useState<any>(null); 
   const [businessName, setBusinessName] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [calls, setCalls] = useState<any[]>([]);
-  const [usageStats, setUsageStats] = useState({ used: 0, limit: 200 }); // Default
+  const [usageStats, setUsageStats] = useState({ used: 0, limit: 200 }); 
   
   // UI State
   const [isEditingName, setIsEditingName] = useState(false);
@@ -144,12 +144,13 @@ export default function Dashboard() {
         .single();
         
       if (profile) {
+        // FIX: Update both the display state AND the input field state so data persists on refresh
         setBusinessName(profile.business_name || "");
         setNewNameInput(profile.business_name || "");
         setUserPhone(profile.business_phone || "");
         setNewPhoneInput(profile.business_phone || "");
-        // Only set usage if the fields exist (Make.com will update these later)
-        if (profile.usage_minutes) {
+
+        if (profile.usage_minutes !== undefined) {
              setUsageStats({
                 used: profile.usage_minutes || 0,
                 limit: profile.monthly_usage_limit || 200
@@ -157,7 +158,7 @@ export default function Dashboard() {
         }
       }
 
-      // 2. Fetch Agent (Was 'assistants', now 'agents')
+      // 2. Fetch Agent
       const { data: agent } = await supabase
         .from('agents')
         .select('*')
@@ -166,13 +167,11 @@ export default function Dashboard() {
         
       setAgentData(agent);
       
-      // Set active voice if found
       if (agent?.active_voice_id) {
           setSelectedVoice(agent.active_voice_id);
       }
 
-      // 3. Fetch Calls (Make.com will populate this table)
-      // Note: Ensure you have a 'calls' table or update this if you name it 'call_logs'
+      // 3. Fetch Calls
       const { data: callLogs } = await supabase
         .from('calls')
         .select('*')
@@ -187,13 +186,10 @@ export default function Dashboard() {
     fetchData();
   }, [router]);
 
-  // --- ACTIONS (UPDATED FOR DIRECT DB ACCESS) ---
-
   const handleUpdateName = async () => {
     if (!newNameInput.trim()) return;
     setUpdating(true);
     try {
-      // 1. Update Database
       const { error } = await supabase
         .from('profiles')
         .update({ business_name: newNameInput })
@@ -201,7 +197,6 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      // 2. Trigger Retell Update (Add this part)
       await fetch('/api/update-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -220,7 +215,6 @@ export default function Dashboard() {
     if (!newPhoneInput.trim()) return;
     setUpdating(true);
     try {
-      // 1. Update Database
       const { error } = await supabase
         .from('profiles')
         .update({ business_phone: newPhoneInput })
@@ -228,7 +222,6 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      // 2. Trigger Retell Update (Add this part)
       await fetch('/api/update-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,9 +239,8 @@ export default function Dashboard() {
   const handleSwitchVoice = async (voiceId: string) => {
     if (updating) return;
     setUpdating(true);
-    setSelectedVoice(voiceId); // Optimistic update
+    setSelectedVoice(voiceId); 
     try {
-      // 1. Update Database (Keep this)
       const { error } = await supabase
         .from('agents')
         .update({ active_voice_id: voiceId })
@@ -256,14 +248,11 @@ export default function Dashboard() {
 
       if (error) throw error;
       
-      // 2. TRIGGER THE API (Add this!)
       await fetch('/api/update-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id })
       });
-
-      alert(`Assistant switched to ${voiceId.toUpperCase()}!`);
     } catch (err: any) { 
         alert(`Failed to switch assistant: ${err.message}`); 
     }
@@ -289,7 +278,6 @@ export default function Dashboard() {
     }
   };
 
-  // Helper for Usage Bar
   const usagePercent = Math.min((usageStats.used / usageStats.limit) * 100, 100);
   const isUsageHigh = usagePercent > 80;
 
@@ -371,11 +359,11 @@ export default function Dashboard() {
                   autoFocus
                 />
               ) : (
-                <h1 className="text-3xl font-bold text-white tracking-tight">{businessName}</h1>
+                <h1 className="text-3xl font-bold text-white tracking-tight">{businessName || "Add Business Name..."}</h1>
               )}
             </div>
 
-            {/* AI Number (Stacked on Mobile) */}
+            {/* AI Number */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50 mb-4">
               <div className="flex items-center gap-4">
                 <div className="h-10 w-10 bg-blue-500/20 rounded-full flex items-center justify-center text-blue-400 shrink-0">
@@ -389,7 +377,6 @@ export default function Dashboard() {
                 </div>
               </div>
               
-              {/* UPDATED LINK */}
               <Link href="/dashboard/setup-guide">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-blue-900/20">
                     <PhoneForwarded className="h-3.5 w-3.5" />
@@ -398,7 +385,7 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {/* User Number (Stacked on Mobile) */}
+            {/* Business Mobile */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-800/50 p-4 rounded-2xl border border-slate-700/50">
               <div className="flex items-center gap-4 w-full">
                 <div className="h-10 w-10 bg-purple-500/20 rounded-full flex items-center justify-center text-purple-400 shrink-0">
@@ -455,7 +442,7 @@ export default function Dashboard() {
           </div>
         </Link>
 
-        {/* Active Persona (Collapsible) */}
+        {/* Active Persona */}
         <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
           <button 
             onClick={() => setIsPersonaOpen(!isPersonaOpen)}
@@ -517,7 +504,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Call Logs (Collapsible) */}
+        {/* Call Logs */}
         <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden shadow-sm transition-all">
           <button 
             onClick={() => setIsActivityOpen(!isActivityOpen)}
@@ -549,7 +536,6 @@ export default function Dashboard() {
               {calls.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 rounded-2xl border border-slate-800 border-dashed bg-slate-950/50">
                    <p className="text-slate-400 font-medium text-sm">No calls recorded yet</p>
-                   <p className="text-xs text-slate-600 mt-1">Make a test call to see it here.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -577,12 +563,9 @@ export default function Dashboard() {
                           }`}>
                             {call.status}
                           </span>
-                          
-                          {/* DELETE BUTTON (GDPR) */}
                           <button 
                             onClick={() => handleDeleteCall(call.id)}
                             className="p-1.5 rounded-lg bg-slate-700/50 hover:bg-red-500/20 hover:text-red-400 text-slate-500 transition-colors"
-                            title="Delete Call Log"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -624,8 +607,6 @@ export default function Dashboard() {
           </div>
           
           <div className="flex-1 px-6 py-6 space-y-4">
-            
-            {/* Account Group */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Account</h3>
               <Link href="/dashboard/profile" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
@@ -638,41 +619,20 @@ export default function Dashboard() {
               </Link>
             </div>
 
-            {/* Support Group */}
             <div className="space-y-2">
               <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider pl-1">Support</h3>
-              
-              {/* UPDATED LINK & ICON */}
               <Link href="/dashboard/setup-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <BookOpen className="h-5 w-5 text-green-400" />
                 <div><p className="text-sm font-medium text-white">Setup Guide</p><p className="text-xs text-slate-500">How to connect</p></div>
               </Link>
-
               <Link href="/dashboard/contact" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
                 <Mail className="h-5 w-5 text-slate-400" />
                 <div><p className="text-sm font-medium text-white">Contact Us</p><p className="text-xs text-slate-500">Get help</p></div>
               </Link>
-              <Link href="/dashboard/install-guide" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Download className="h-5 w-5 text-blue-400" />
-                <div><p className="text-sm font-medium text-white">Install App</p><p className="text-xs text-slate-500">Add to home screen</p></div>
-              </Link>
-              
-              {/* RESTORED LINK */}
-              <Link href="/dashboard/review" onClick={() => setIsSettingsOpen(false)} className="flex w-full items-center gap-3 rounded-xl bg-slate-800/50 p-4 border border-slate-800 hover:bg-slate-800 hover:border-slate-700 transition-colors">
-                <Star className="h-5 w-5 text-yellow-500" />
-                <div><p className="text-sm font-medium text-white">Leave a Review</p><p className="text-xs text-slate-500">Rate your experience</p></div>
-              </Link>
             </div>
-
           </div>
 
           <div className="border-t border-slate-800 p-6 space-y-4">
-            {/* Legal Links */}
-            <div className="flex justify-center gap-4 text-[10px] text-slate-600 font-medium">
-                <Link href="/terms" className="hover:text-slate-400 transition-colors">Terms of Service</Link>
-                <Link href="/privacy" className="hover:text-slate-400 transition-colors">Privacy Policy</Link>
-            </div>
-
             <button 
               onClick={handleSignOut}
               className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-medium text-red-400 hover:bg-red-500/20 transition-colors"
